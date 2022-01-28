@@ -156,11 +156,11 @@ if __name__ == "__main__":
 
     timer.time_in("MAIN")
 
-    timer.time_in("create arm")
-    for i in range(100):
 
+    for i in range(100):
+        timer.time_in("create arm")
         arm = SerialArm(dh, jt)
-    timer.time_out("create arm")
+        timer.time_out("create arm")
 
     q = [PI/4, PI/4, PI/4]
 
