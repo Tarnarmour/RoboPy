@@ -12,8 +12,43 @@ https://github.com/Tarnarmour/RoboPy.git
 import numpy as np
 import sympy as sp
 import mpmath as mp
+import copy
 
 eye = np.eye(4, dtype=np.float32)
+
+
+class TForm:
+
+    def __init__(self, dh, jt):
+
+        if jt == 'r':
+            def f(q):
+                d = dh[0]
+                theta = dh[1] + q
+                a = dh[2]
+                alpha = dh[3]
+
+                return np.array(
+                    [[np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
+                     [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
+                     [0, np.sin(alpha), np.cos(alpha), d],
+                     [0, 0, 0, 1]],
+                    dtype=np.float32)
+        else:
+            def f(q):
+                d = dh[0] + q
+                theta = dh[1]
+                a = dh[2]
+                alpha = dh[3]
+
+                return np.array(
+                    [[np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
+                     [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
+                     [0, np.sin(alpha), np.cos(alpha), d],
+                     [0, 0, 0, 1]],
+                    dtype=np.float32)
+
+        self.f = f
 
 
 class SerialArm:
@@ -43,36 +78,17 @@ class SerialArm:
             self.jt = ['r'] * self.n
         else:
             self.jt = jt
-
         for i in range(self.n):
-            if self.jt[i] == 'r':
-                def func(q):
-                    d = dh[i][0]
-                    theta = dh[i][1] + q
-                    a = dh[i][2]
-                    alpha = dh[i][3]
-                    return np.array([[np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
-                                     [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
-                                     [0, np.sin(alpha), np.cos(alpha), d],
-                                     [0, 0, 0, 1]],
-                                    dtype=np.float32)
-            else:
-                def func(q):
-                    d = dh[i][0] + q
-                    theta = dh[i][1]
-                    a = dh[i][2]
-                    alpha = dh[i][3]
-                    return np.array([[np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
-                                     [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
-                                     [0, np.sin(alpha), np.cos(alpha), d],
-                                     [0, 0, 0, 1]],
-                                    dtype=np.float32)
-            self.transforms.append(func)
+            T = TForm(dh[i], self.jt[i])
+            self.transforms.append(T.f)
 
         self.base = base
         self.tip = tip
 
     def fk(self, q, index=None, base=False, tip=False):
+
+        if self.n == 1 and not isinstance(q, (list, tuple)):
+            q = [q]
 
         if isinstance(index, (list, tuple)):
             start_frame = index[0]
@@ -147,27 +163,7 @@ class SerialArm:
 
 
 if __name__ == "__main__":
-    PI = np.pi
-    from TimingAnalysis.TimingAnalysis import TimingAnalysis as Jt
-    timer = Jt()
-    c = 0
-    dh = [[0, 0, 1, 0], [0, 0, 1, 0], [0, 0, 1, 0]]
-    jt = ['r', 'd', 'r']
 
-    timer.time_in("MAIN")
-
-
-    for i in range(100):
-        timer.time_in("create arm")
-        arm = SerialArm(dh, jt)
-        timer.time_out("create arm")
-
-    q = [PI/4, PI/4, PI/4]
-
-    for i in range(100):
-        timer.time_in("j")
-        J = arm.jacob(q)
-        timer.time_out("j")
-
-    print(J)
-    timer.report_all()
+    dh = [[0, 0, 0.1, 0], [0, 0, 5, 0]]
+    arm = SerialArm(dh)
+    print(arm.fk([0, 0]))
