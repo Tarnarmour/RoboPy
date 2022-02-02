@@ -85,6 +85,14 @@ class SerialArm:
         self.base = base
         self.tip = tip
 
+    def __str__(self):
+        # MUST DO!
+        return("not here yet")
+
+    def __repr__(self):
+        # MUST DO!
+        return("not here yet")
+
     def fk(self, q, index=None, base=False, tip=False):
 
         if self.n == 1 and not isinstance(q, (list, tuple)):
