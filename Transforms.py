@@ -106,9 +106,9 @@ def euler2R(th1, th2, th3, order='xyz'):
 
 def R2q(R):
     return np.array([0.5*sqrt(R[0, 0] + R[1, 1] + R[2, 2] + 1),
-                     0.5*np.sign(R[2, 1] - R[1, 2] * sqrt(R[0, 0] - R[1, 1] - R[2, 2] + 1)),
-                     0.5*np.sign(R[0, 2] - R[2, 0] * sqrt(R[1, 1] - R[2, 2] - R[0, 0] + 1)),
-                     0.5*np.sign(R[2, 1] - R[1, 2] * sqrt(R[2, 2] - R[0, 0] - R[1, 1] + 1))])
+                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(R[0, 0] - R[1, 1] - R[2, 2] + 1),
+                     0.5*np.sign(R[0, 2] - R[2, 0]) * sqrt(R[1, 1] - R[2, 2] - R[0, 0] + 1),
+                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(R[2, 2] - R[0, 0] - R[1, 1] + 1)])
 
 def q2R(q):
     nu = q[0]
