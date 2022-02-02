@@ -12,9 +12,12 @@ https://github.com/Tarnarmour/RoboPy.git
 import numpy as np
 import sympy as sp
 import mpmath as mp
-import copy
+from Transforms import *
+from Utility import *
+from Visualization import PlanarMPL
 
 eye = np.eye(4, dtype=np.float32)
+pi = np.pi
 
 
 class TForm:
@@ -28,10 +31,15 @@ class TForm:
                 a = dh[2]
                 alpha = dh[3]
 
+                cth = np.cos(theta)
+                sth = np.sin(theta)
+                cal = np.cos(alpha)
+                sal = np.sin(alpha)
+
                 return np.array(
-                    [[np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
-                     [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
-                     [0, np.sin(alpha), np.cos(alpha), d],
+                    [[cth, -sth * cal, sth *sal, a * cth],
+                     [sth, cth * cal, -cth * sal, a * sth],
+                     [0, sal, cal, d],
                      [0, 0, 0, 1]],
                     dtype=np.float32)
         else:
@@ -41,10 +49,15 @@ class TForm:
                 a = dh[2]
                 alpha = dh[3]
 
+                cth = np.cos(theta)
+                sth = np.sin(theta)
+                cal = np.cos(alpha)
+                sal = np.sin(alpha)
+
                 return np.array(
-                    [[np.cos(theta), -np.sin(theta) * np.cos(alpha), np.sin(theta) * np.sin(alpha), a * np.cos(theta)],
-                     [np.sin(theta), np.cos(theta) * np.cos(alpha), -np.cos(theta) * np.sin(alpha), a * np.sin(theta)],
-                     [0, np.sin(alpha), np.cos(alpha), d],
+                    [[cth, -sth * cal, sth * sal, a * cth],
+                     [sth, cth * cal, -cth * sal, a * sth],
+                     [0, sal, cal, d],
                      [0, 0, 0, 1]],
                     dtype=np.float32)
 
@@ -84,14 +97,20 @@ class SerialArm:
 
         self.base = base
         self.tip = tip
+        self.reach = 0
+        for i in range(self.n):
+            self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
 
     def __str__(self):
-        # MUST DO!
-        return("not here yet")
+        dh_string = """DH PARAMS\n"""
+        dh_string += """d\t|\tth\t|\ta\t|\tal\t|\tJT\n"""
+        dh_string += """---------------------------------------\n"""
+        for i in range(self.n):
+            dh_string += f"{self.dh[i][0]}\t|\t{self.dh[i][1]}\t|\t{self.dh[i][2]}\t|\t{self.dh[i][3]}\t|\t{self.jt[i]}\n"
+        return "Serial Arm\n" + dh_string
 
     def __repr__(self):
-        # MUST DO!
-        return("not here yet")
+        return(f"SerialArm(dh=" + repr(self.dh) + ", jt=" + repr(self.jt) + ", base=" + repr(self.base) + ", tip=" + repr(self.tip) + ")")
 
     def fk(self, q, index=None, base=False, tip=False):
 
@@ -165,13 +184,132 @@ class SerialArm:
 
         return J
 
-    def jacoba(self, q, index, pose='rpy'):
-        print("implement me!")
-        return None
+    def jacoba(self, q, rep='rpy', index=None, eps=1e-4):
+
+        if rep == 'rpy':
+            def get_pose(q):
+                return A2rpy(self.fk(q, index))
+        elif rep == 'planar':
+            def get_pose(q):
+                return A2planar(self.fk(q, index))
+        elif rep == 'axis':
+            def get_pose(q):
+                return A2axis(self.fk(q, index))
+        elif rep == 'q' or rep == 'quaternion':
+            def get_pose(q):
+                return A2q(self.fk(q, index))
+        elif rep == 'x':
+            def get_pose(q):
+                return A2x(self.fk(q, index))
+        else:
+            def get_pose(q):
+                return arm.fk(q)[0:2, 3]
+
+        x0 = get_pose(q)
+        m = x0.shape[0]
+        J = np.zeros((m, self.n), dtype=np.float32)
+
+        if not isinstance(q, np.ndarray):
+            q = np.array(q, dtype=data_type)
+
+        for i in range(self.n):
+            q0 = np.zeros_like(q)
+            q0[i] += eps
+            J[:, i] = (get_pose(q + q0) - get_pose(q - q0)) / (2 * eps)
+
+        return J
+
+    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5):
+
+        if q0 is None:
+            q0 = np.zeros((self.n,), dtype=data_type)
+
+        if rep == 'rpy':
+            def get_pose(A):
+                return A2rpy(A)
+        elif rep == 'planar':
+            def get_pose(A):
+                return A2planar(A)
+        elif rep == 'axis':
+            def get_pose(A):
+                return A2axis(A)
+        elif rep == 'q' or rep == 'quaternion':
+            def get_pose(A):
+                return A2q(A)
+        elif rep == 'x':
+            def get_pose(A):
+                return A2x(A)
+        else:
+            def get_pose(A):
+                return A[0:2, 3]
+
+        if method == 'pinv':
+            def get_qd(q, e):
+                J = self.jacoba(q, rep=rep)
+                Jdag = np.linalg.pinv(J)
+                qd = -Jdag @ e
+                return qd
+
+        elif method == 'jt':
+            def get_qd(q, e):
+                J = self.jacoba(q, rep=rep)
+                qd = -J.T @ e * 0.15
+                return qd
+
+        x_target = get_pose(A_target)
+        x0 = get_pose(arm.fk(q0))
+
+        e = x0 - x_target
+        q = q0
+        count = 0
+
+        status = 'Success'
+        report = 'Successfully converged'
+
+        while norm(e) > tol:
+            count += 1
+            qd = get_qd(q, e)
+            # qd = qd / norm(qd) * norm(e) / 10
+
+            while norm(get_pose(arm.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
+                qd = qd * 0.5
+
+            q = q + qd
+            q = wrap_angle(q)
+            x = get_pose(arm.fk(q))
+            viz.update(q)
+
+            e = x - x_target
+
+            if count > max_iter:
+                status = 'Failure'
+                report = 'Did not converge within max_iter limit'
+                break
+            elif norm(qd) < min_delta:
+                status = 'Failure'
+                report = 'Terminated because change in q below minimum epsilon'
+                break
+
+        print(f"Status: {status}\nFinal Error Norm: {norm(e)}\nIter: {count}\n{report}")
+        return q
 
 
 if __name__ == "__main__":
-
-    dh = [[0, 0, 0.1, 0], [0, 0, 5, 0]]
+    np.set_printoptions(precision=4, floatmode='maxprec', suppress=True)
+    pi = np.pi
+    dh = [[0, 0, 1.45, 0], [0, 0, 1.45, 0], [0, 0, 0.1, 0]]
+    q0 = [0, 0, 0]
     arm = SerialArm(dh)
-    print(arm.fk([0, 0]))
+    A_target = se3(rotz(np.pi/2), [0, 2, 0])
+
+    viz1 = PlanarMPL(arm, q0, trace=True)
+    target1 = viz1.ax.plot(A_target[0,3], A_target[1,3], 'x', color=[0,1,1,1])
+
+    qt = arm.ik(A_target, q0=q0, method='pinv', rep='planar', max_iter=200, viz=viz1)
+
+    viz2 = PlanarMPL(arm, q0, trace=True)
+    target2 = viz2.ax.plot(A_target[0, 3], A_target[1, 3], 'x', color=[0, 1, 1, 1])
+
+    qt = arm.ik(A_target, q0=q0, method='jt', rep='planar', max_iter=200, viz=viz2)
+
+    viz1.show()

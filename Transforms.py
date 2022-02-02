@@ -13,23 +13,28 @@ import numpy as np
 from numpy import sin, cos, sqrt
 from numpy.linalg import norm
 
+data_type = np.float64
+
 def rot2(th):
-    return np.array([[cos(th), -sin(th)], [sin(th), cos(th)]], dtype=np.float32)
+    return np.array([[cos(th), -sin(th)], [sin(th), cos(th)]], dtype=data_type)
+
+def rot2theta(R):
+    return np.arctan2(R[1, 0], R[0, 0])
 
 def rotx(th):
     return np.array([[1, 0, 0],
                      [0, cos(th), -sin(th)],
-                     [0, sin(th), cos(th)]], dtype=np.float32)
+                     [0, sin(th), cos(th)]], dtype=data_type)
 
 def roty(th):
     return np.array([[cos(th), 0, sin(th)],
                      [0, 1, 0],
-                     [-sin(th), 0, cos(th)]], dtype=np.float32)
+                     [-sin(th), 0, cos(th)]], dtype=data_type)
 
 def rotz(th):
     return np.array([[cos(th), -sin(th), 0],
                      [sin(th), cos(th), 0],
-                     [0, 0, 1]], dtype=np.float32)
+                     [0, 0, 1]], dtype=data_type)
 
 def R2rpy(R):
     return np.array([np.arctan2(R[1, 0], R[0, 0]),
@@ -73,7 +78,6 @@ def R2euler(R, order='xyz'):
         Ri = Ri @ rotC(th3)
 
     return np.array([th1, th2, th3])
-
 
 def euler2R(th1, th2, th3, order='xyz'):
 
@@ -133,8 +137,61 @@ def axis2R(ang, rx, ry, rz):
                      [rx*ry*(1-c)+rz*s, ry**2 * (1-c) + c, ry*rz*(1-c)-rx*s],
                      [rx*rz*(1-c)-ry*s, ry*rz*(1-c)+rx*s, rz**2 * (1-c) + c]])
 
+def se3(R=np.eye(3, dtype=data_type), p=np.array([0, 0, 0], dtype=data_type)):
+    A = np.eye(4, dtype=data_type)
+    if isinstance(R, (list, tuple)):
+        R = np.array(R)
+    A[0:3, 0:3] = R
+    if isinstance(p, (list, tuple)):
+        p = np.array(p)
+    A[0:3, 3] = p
+    return A
+
+def se2(R=np.eye(2), p=np.array([0, 0])):
+    A = np.eye(2, dtype=data_type)
+    if isinstance(R, (list, tuple)):
+        R = np.array(R)
+    A[0:2, 0:2] = R
+    if isinstance(p, (list, tuple)):
+        p = np.array(p)
+    A[0:2, 2] = p
+    return A
+
+def transl(p):
+    return se3(p=p)
+
+def inv(A):
+    m = T.shape[0]
+    n = T.shape[1]
+    Ainv = np.zeros_like(A)
+    if m == 3:
+        R = A[0:2, 0:2].T
+        p = R.T @ - A[0:2, 2]
+        return se2(R, p)
+    else:
+        R = A[0:3, 0:3].T
+        p = R.T @ - A[0:3, 3]
+        return se3(R, p)
+
+def A2rpy(A):
+    return np.hstack((A[0:3, 3], R2rpy(A[0:3, 0:3])))
+
+def A2planar(A):
+    return np.hstack((A[0:2, 3], rot2theta(A[0:2, 0:2])))
+
+def A2axis(A):
+    return np.hstack((A[0:3, 3], R2axis(A[0:3, 0:3])))
+
+def A2q(A):
+    return np.hstack((A[0:3, 3], R2q(A[0:3, 0:3])))
+
+def A2x(A):
+    return np.hstack((A[0:3, 3], np.reshape(A[0:3, 0:3], 9, 'F')))
+
+
 if __name__ == '__main__':
-    PI = np.pi
-    R = rotx(1) @ roty(2) @ rotx(3)
-    print(R2euler(R, 'xyx'))
+    pi = np.pi
+    A = se3(rotz(pi/4), [1,2,3])
+    x = A2x(A)
+    print(x)
 
