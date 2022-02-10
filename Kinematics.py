@@ -8,7 +8,7 @@ John Morrell, Jan 26 2022
 Tarnarmour@gmail.com
 https://github.com/Tarnarmour/RoboPy.git
 """
-
+import Visualization
 import numpy as np
 import sympy as sp
 import mpmath as mp
@@ -21,7 +21,6 @@ pi = np.pi
 
 
 class TForm:
-
     def __init__(self, dh, jt):
 
         if jt == 'r':
@@ -192,6 +191,9 @@ class SerialArm:
         elif rep == 'planar':
             def get_pose(q):
                 return A2planar(self.fk(q, index))
+        elif rep == 'cart':
+            def get_pose(q):
+                return self.fk(q, index)[0:3, 3]
         elif rep == 'axis':
             def get_pose(q):
                 return A2axis(self.fk(q, index))
@@ -230,6 +232,9 @@ class SerialArm:
         elif rep == 'planar':
             def get_pose(A):
                 return A2planar(A)
+        elif rep == 'cart':
+            def get_pose(A):
+                return A[0:3, 3]
         elif rep == 'axis':
             def get_pose(A):
                 return A2axis(A)
@@ -269,8 +274,8 @@ class SerialArm:
         while norm(e) > tol:
             count += 1
             qd = get_qd(q, e)
-            # qd = qd / norm(qd) * norm(e) / 10
-
+            # qd = qd / norm(qd) * norm(e) / 50
+            qd = qd / norm(qd) / 50
             while norm(get_pose(arm.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
                 qd = qd * 0.5
 
@@ -297,19 +302,13 @@ class SerialArm:
 if __name__ == "__main__":
     np.set_printoptions(precision=4, floatmode='maxprec', suppress=True)
     pi = np.pi
-    dh = [[0, 0, 1.45, 0], [0, 0, 1.45, 0], [0, 0, 0.1, 0]]
-    q0 = [0, 0, 0]
+    dh = [[0, 0, 1.0, pi/4], [0, 0, 1.0, pi/4], [0, 0, 0.25, pi/4],[0, 0, 0.25, 0]]
+    q0 = [0, 0, 0, 0]
     arm = SerialArm(dh)
-    A_target = se3(rotz(np.pi/2), [0, 2, 0])
+    A_target = se3(rotz(np.pi/2), [1, 1, 1])
 
-    viz1 = PlanarMPL(arm, q0, trace=True)
-    target1 = viz1.ax.plot(A_target[0,3], A_target[1,3], 'x', color=[0,1,1,1])
+    viz = Visualization.ArmViz(arm, q0)
+    viz.addScatter(A_target[0:3, 3], np.array([0, 1, 0, 1]), 10)
+    qt = arm.ik(A_target, q0, 'pinv', 'cart', 500, viz=viz)
 
-    qt = arm.ik(A_target, q0=q0, method='pinv', rep='planar', max_iter=200, viz=viz1)
-
-    viz2 = PlanarMPL(arm, q0, trace=True)
-    target2 = viz2.ax.plot(A_target[0, 3], A_target[1, 3], 'x', color=[0, 1, 1, 1])
-
-    qt = arm.ik(A_target, q0=q0, method='jt', rep='planar', max_iter=200, viz=viz2)
-
-    viz1.show()
+    viz.app.exec_()
