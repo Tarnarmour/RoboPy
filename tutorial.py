@@ -1,6 +1,6 @@
+# READ ME: Instructions on use here
 import numpy as np
 
-# READ ME: Instructions on use here
 if __name__ == '__main__':
     ## Tutorial for basic operation.
     """ RoboPy is designed to be a lightweight and convenient tool for visualizing and simulating serial linkage robots.
@@ -8,12 +8,11 @@ if __name__ == '__main__':
     boilerplate robotics operations, like forward and inverse kinematics, simple dynamics, and visualization. This 
     tutorial will step through some common tools. Look at the individual files for more details documentation."""
 
-    # To use RoboPy, simply import like you would normally
-    import RoboPy as rp
+    # To use RoboPy, simply import like you would normally "import RoboPy as rp"
     # or
     from RoboPy import *
 
-    """RoboPy is currently organized into 5 main modules: Transforms, Kinematics, Dynamics, Simulation, and Visualization.
+    """RoboPy is currently organized into 5 main modules: Transforms, Kinematics, dynamics, Simulation, and Visualization.
     """
 
     # Transforms

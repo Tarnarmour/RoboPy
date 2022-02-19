@@ -8,13 +8,9 @@ John Morrell, Jan 26 2022
 Tarnarmour@gmail.com
 https://github.com/Tarnarmour/RoboPy.git
 """
-import Visualization
-import numpy as np
-import sympy as sp
-import mpmath as mp
-from Transforms import *
-from Utility import *
-from Visualization import PlanarMPL
+
+from .utility import *
+from .transforms import *
 
 eye = np.eye(4, dtype=np.float32)
 pi = np.pi
@@ -90,6 +86,9 @@ class SerialArm:
             self.jt = ['r'] * self.n
         else:
             self.jt = jt
+            if len(self.jt) != self.n:
+                print("WARNING! Joint Type list does not have the same size as dh param list!")
+                return None
         for i in range(self.n):
             T = TForm(dh[i], self.jt[i])
             self.transforms.append(T.f)
@@ -100,6 +99,8 @@ class SerialArm:
         for i in range(self.n):
             self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
 
+        self.qlim = joint_limits
+
     def __str__(self):
         dh_string = """DH PARAMS\n"""
         dh_string += """d\t|\tth\t|\ta\t|\tal\t|\tJT\n"""
@@ -109,12 +110,16 @@ class SerialArm:
         return "Serial Arm\n" + dh_string
 
     def __repr__(self):
-        return(f"SerialArm(dh=" + repr(self.dh) + ", jt=" + repr(self.jt) + ", base=" + repr(self.base) + ", tip=" + repr(self.tip) + ")")
+        return(f"SerialArm(dh=" + repr(self.dh) + ", jt=" + repr(self.jt) + ", base=" + repr(self.base) + ", tip=" + repr(self.tip) + ", joint_limits=" + repr(self.qlim) + ")")
 
     def fk(self, q, index=None, base=False, tip=False):
 
-        if self.n == 1 and not isinstance(q, (list, tuple)):
+        if not hasattr(q, '__getitem__'):
             q = [q]
+
+        if len(q) != self.n:
+            print("WARNING: q (input angle) not the same size as number of links!")
+            return None
 
         if isinstance(index, (list, tuple)):
             start_frame = index[0]
@@ -221,7 +226,7 @@ class SerialArm:
 
         return J
 
-    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5):
+    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf):
 
         if q0 is None:
             q0 = np.zeros((self.n,), dtype=data_type)
@@ -260,55 +265,77 @@ class SerialArm:
                 J = self.jacoba(q, rep=rep)
                 qd = -J.T @ e * 0.15
                 return qd
+        else:
+            print(f"Warning: {method} is not a valid IK method!")
+            return None
 
         x_target = get_pose(A_target)
-        x0 = get_pose(arm.fk(q0))
+        x0 = get_pose(self.fk(q0))
 
         e = x0 - x_target
         q = q0
         count = 0
 
-        status = 'Success'
+        status = True
         report = 'Successfully converged'
 
         while norm(e) > tol:
             count += 1
             qd = get_qd(q, e)
-            # qd = qd / norm(qd) * norm(e) / 50
-            qd = qd / norm(qd) / 50
-            while norm(get_pose(arm.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
+            if norm(qd) > max_delta:
+                qd = qd / norm(qd) * max_delta
+            while norm(get_pose(self.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
                 qd = qd * 0.5
 
             q = q + qd
-            q = wrap_angle(q)
-            x = get_pose(arm.fk(q))
-            viz.update(q)
+            for i in range(self.n):
+                if self.jt[i] == 'r':
+                    q[i] = wrap_angle(q[i])
+            x = get_pose(self.fk(q))
+
+            if viz is not None:
+                viz.update(q)
 
             e = x - x_target
 
             if count > max_iter:
-                status = 'Failure'
+                status = False
                 report = 'Did not converge within max_iter limit'
                 break
             elif norm(qd) < min_delta:
-                status = 'Failure'
+                status = False
                 report = 'Terminated because change in q below minimum epsilon'
                 break
+        xf = get_pose(self.fk(q))
+        output = IKOutput(q, xf, x_target, status, report, count, e, norm(e))
+        return output
 
-        print(f"Status: {status}\nFinal Error Norm: {norm(e)}\nIter: {count}\n{report}")
-        return q
 
+class IKOutput:
+    def __init__(self, qf, xf, xt, status, report, nit, ef, nef):
+        self.qf = qf
+        self.xf = xf
+        self.xt = xt
+        self.status = status
+        self.message = report
+        self.nit = nit
+        self.ef = ef
+        self.nef = nef
+
+    def __str__(self):
+        return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
 
 if __name__ == "__main__":
     np.set_printoptions(precision=4, floatmode='maxprec', suppress=True)
     pi = np.pi
-    dh = [[0, 0, 1.0, pi/4], [0, 0, 1.0, pi/4], [0, 0, 0.25, pi/4],[0, 0, 0.25, 0]]
-    q0 = [0, 0, 0, 0]
-    arm = SerialArm(dh)
+    dh = [[0, 0, 0.4, pi/2]] * 10
+    jt = ['r'] * 10
+    q0 = [0] * len(jt)
+    arm = SerialArm(dh, jt)
     A_target = se3(rotz(np.pi/2), [1, 1, 1])
 
-    viz = Visualization.ArmViz(arm, q0)
     viz.addScatter(A_target[0:3, 3], np.array([0, 1, 0, 1]), 10)
-    qt = arm.ik(A_target, q0, 'pinv', 'cart', 500, viz=viz)
+    output = arm.ik(A_target, q0, 'pinv', 'rpy', 300)
 
-    viz.app.exec_()
+    print(output)
+

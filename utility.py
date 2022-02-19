@@ -15,6 +15,19 @@ def wrap_angle(q):
         q = f(q)
     return q
 
+def skew(v):
+    return np.array([[0, -v[2], v[1]],
+                     [v[2], 0, -v[0]],
+                     [-v[1], v[0], 0]])
+
+def clean_rotation_matrix(R, eps=1e-12):
+    for i in range(R.shape[0]):
+        for j in range(R.shape[1]):
+            if np.abs(R[i, j]) < eps:
+                R[i, j] = 0.
+            elif np.abs(R[i, j] - 1) < eps:
+                R[i, j] = 1.
+    return R
 
 if __name__ == '__main__':
     q1 = np.pi + 1

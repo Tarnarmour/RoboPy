@@ -13,28 +13,34 @@ import numpy as np
 from numpy import sin, cos, sqrt
 from numpy.linalg import norm
 
+from .utility import *
+
 data_type = np.float64
 
 def rot2(th):
-    return np.array([[cos(th), -sin(th)], [sin(th), cos(th)]], dtype=data_type)
+    R = np.array([[cos(th), -sin(th)], [sin(th), cos(th)]], dtype=data_type)
+    return clean_rotation_matrix(R)
 
 def rot2theta(R):
     return np.arctan2(R[1, 0], R[0, 0])
 
 def rotx(th):
-    return np.array([[1, 0, 0],
+    R = np.array([[1, 0, 0],
                      [0, cos(th), -sin(th)],
                      [0, sin(th), cos(th)]], dtype=data_type)
+    return clean_rotation_matrix(R)
 
 def roty(th):
-    return np.array([[cos(th), 0, sin(th)],
+    R = np.array([[cos(th), 0, sin(th)],
                      [0, 1, 0],
                      [-sin(th), 0, cos(th)]], dtype=data_type)
+    return clean_rotation_matrix(R)
 
 def rotz(th):
-    return np.array([[cos(th), -sin(th), 0],
+    R = np.array([[cos(th), -sin(th), 0],
                      [sin(th), cos(th), 0],
                      [0, 0, 1]], dtype=data_type)
+    return clean_rotation_matrix(R)
 
 def R2rpy(R):
     return np.array([np.arctan2(R[1, 0], R[0, 0]),
@@ -42,7 +48,8 @@ def R2rpy(R):
                      np.arctan2(R[2, 1], R[2, 2])])
 
 def rpy2R(rpy):
-    return rotx(rpy[0]) @ roty(rpy[1]) @ rotz(rpy[2])
+    R = rotx(rpy[0]) @ roty(rpy[1]) @ rotz(rpy[2])
+    return clean_rotation_matrix(R)
 
 def R2euler(R, order='xyz'):
 
@@ -68,13 +75,13 @@ def R2euler(R, order='xyz'):
         Ri = Ri @ rotA(th1)
     else:
         v = v / norm(v)
-        th1 = np.arccos(Ri[:, axis2] @ v)
+        th1 = np.arccos(min(max(Ri[:, axis2] @ v, 1), 0))
         Ri = Ri @ rotA(th1)
 
-        th2 = np.arccos(Ri[:, axis3] @ Rf[:, axis3])
+        th2 = np.arccos(min(max(Ri[:, axis3] @ Rf[:, axis3], 1), 0))
         Ri = Ri @ rotB(th2)
 
-        th3 = np.arccos(Ri[:, axis2] @ Rf[:, axis2])
+        th3 = np.arccos(min(max(Ri[:, axis2] @ Rf[:, axis2], 1), 0))
         Ri = Ri @ rotC(th3)
 
     return np.array([th1, th2, th3])
@@ -106,7 +113,7 @@ def euler2R(th1, th2, th3, order='xyz'):
     elif order == 'zyz':
         R = rotz(th1) @ roty(th2) @ rotz(th3)
 
-    return R
+    return clean_rotation_matrix(R)
 
 def R2q(R):
     return np.array([0.5*sqrt(R[0, 0] + R[1, 1] + R[2, 2] + 1),
@@ -119,9 +126,10 @@ def q2R(q):
     ex = q[1]
     ey = q[2]
     ez = q[3]
-    return np.array([[2*(nu**2+ex**2)-1, 2*(ex*ey-nu*ez), 2*(ex*ez+nu*ey)],
+    R =  np.array([[2*(nu**2+ex**2)-1, 2*(ex*ey-nu*ez), 2*(ex*ez+nu*ey)],
                     [2*(ex*ey+nu*ez), 2*(nu**2+ey**2)-1, 2*(ey*ez-nu*ex)],
                     [2*(ex*ez-nu*ey), 2*(ey*ez+nu*ex), 2*(nu**2+ez**2)-1]])
+    return clean_rotation_matrix(R)
 
 def R2axis(R):
     ang = np.arccos(0.5 * (R[0, 0] + R[1, 1] + R[2, 2] - 1))
@@ -130,12 +138,11 @@ def R2axis(R):
                      (R[2, 0] - R[2, 0]) / (2 * sin(ang)),
                      (R[1, 0] - R[0, 1]) / (2 * sin(ang))])
 
-def axis2R(ang, rx, ry, rz):
-    c = cos(ang)
-    s = sin(ang)
-    return np.array([[rx**2 * (1-c) + c, rx*ry*(1-c)-rz*s, rx*rz*(1-c)+ry*s],
-                     [rx*ry*(1-c)+rz*s, ry**2 * (1-c) + c, ry*rz*(1-c)-rx*s],
-                     [rx*rz*(1-c)-ry*s, ry*rz*(1-c)+rx*s, rz**2 * (1-c) + c]])
+def axis2R(ang, v):
+    v = v / norm(v)
+    V = skew(v)
+    R = np.eye(3, dtype=data_type) + sin(ang) * V + (1 - cos(ang)) * V @ V
+    return clean_rotation_matrix(R)
 
 def se3(R=np.eye(3, dtype=data_type), p=np.array([0, 0, 0], dtype=data_type)):
     A = np.eye(4, dtype=data_type)
@@ -145,7 +152,7 @@ def se3(R=np.eye(3, dtype=data_type), p=np.array([0, 0, 0], dtype=data_type)):
     if isinstance(p, (list, tuple)):
         p = np.array(p)
     A[0:3, 3] = p
-    return A
+    return clean_rotation_matrix(A)
 
 def se2(R=np.eye(2), p=np.array([0, 0])):
     A = np.eye(2, dtype=data_type)
@@ -186,12 +193,5 @@ def A2q(A):
     return np.hstack((A[0:3, 3], R2q(A[0:3, 0:3])))
 
 def A2x(A):
-    return np.hstack((A[0:3, 3], np.reshape(A[0:3, 0:3], 9, 'F')))
-
-
-if __name__ == '__main__':
-    pi = np.pi
-    A = se3(rotz(pi/4), [1,2,3])
-    x = A2x(A)
-    print(x)
+    return np.hstack((A[0:3, 3], np.reshape(A[np.ix_([0,1,2], [0,2])], 6, 'F')))
 

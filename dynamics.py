@@ -1,5 +1,5 @@
 """
-Dynamics Module - Contains code for:
+dynamics Module - Contains code for:
 - Dynamic SerialArm class
 - RNE Algorithm
 - Euler - Lagrange formulation
@@ -10,11 +10,11 @@ https://github.com/Tarnarmour/RoboPy.git
 """
 
 import numpy as np
-import Kinematics as kin
+from .kinematics import SerialArm
 
 eye = np.eye(4)
 
-class SerialArmDyn(kin.SerialArm):
+class SerialArmDyn(SerialArm):
     """
     class representing a serial linkage arm with dynamic
     !!! finish me !!!
@@ -121,43 +121,3 @@ class SerialArmDyn(kin.SerialArm):
 
         return tau, Wrench
 
-
-if __name__ == '__main__':
-
-    from TimingAnalysis.TimingAnalysis import TimingAnalysis as TA
-    timer = TA()
-    timer.time_in("MAIN")
-
-    r = np.array([-0.5, 0, 0])
-    a = 1
-    m = 1
-    I = np.array([[0, 0, 0],
-                  [0, a**2 * m / 12, 0],
-                  [0, 0, a**2 * m / 12]])
-    link_inertia = [I, I]
-
-    dh = [[0, 0, a, 0],
-          [0, 0, a, 0]]
-
-    jt = ['r', 'r']
-    link_masses = [m, m]
-    r_com = [r, r]
-    arm = SerialArmDyn(dh, jt, mass=link_masses, r_com=r_com, link_inertia=link_inertia)
-
-    W = np.array([5, 6, 7, 8, 9, 10])
-    g = np.array([10, 20, 30])
-
-    q = [1, 2]
-    qd = [3, 4]
-    qdd = [5, 6]
-
-
-    for i in range(100):
-        timer.time_in("RNE")
-        tau, W = arm.RNE(q, qd, qdd, W, g)
-        timer.time_out("RNE")
-
-    print(tau)
-    print(W)
-
-    timer.report_all()
