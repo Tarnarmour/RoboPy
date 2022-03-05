@@ -219,6 +219,19 @@ class VizScene:
 
         self.app.processEvents()
 
+    def remove_arm(self, arm=None):
+        if arm is None:
+            for arm in self.arms:
+                self.window.removeItem(arm.mesh_object)
+            self.arms = []
+        elif isinstance(arm, (int)):
+            self.window.removeItem(self.arms[arm].mesh_object)
+            self.arms.pop(arm)
+        else:
+            print("Warning: invalid index entered!")
+            return None
+        self.app.processEvents()
+
     def add_frame(self, A):
         self.frames.append(FrameViz())
         self.frames[-1].update(A)
@@ -228,6 +241,19 @@ class VizScene:
             self.range = 2 * norm(A[0:3, 3])
             self.window.setCameraPosition(distance=self.range)
 
+        self.app.processEvents()
+
+    def remove_frame(self, ind=None):
+        if ind is None:
+            for frame in self.frames:
+                self.window.removeItem(frame.mesh_object)
+            self.frames = []
+        elif isinstance(ind, (int)):
+            self.window.removeItem(self.frames[ind].mesh_object)
+            self.frames.pop(ind)
+        else:
+            print("Warning: invalid index entered!")
+            return None
         self.app.processEvents()
 
     def add_marker(self, pos, color=green, size=10):
@@ -241,6 +267,19 @@ class VizScene:
             self.range = 2 * norm(pos)
             self.window.setCameraPosition(distance=self.range)
 
+        self.app.processEvents()
+
+    def remove_marker(self, ind=None):
+        if ind is None:
+            for marker in self.markers:
+                self.window.removeItem(marker.mesh_object)
+            self.markers = []
+        elif isinstance(ind, (int)):
+            self.window.removeItem(self.markers[ind])
+            self.markers.pop(ind)
+        else:
+            print("Warning: invalid index entered!")
+            return None
         self.app.processEvents()
 
     def update(self, qs=None, As=None, poss=None):

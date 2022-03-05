@@ -3,9 +3,10 @@ import numpy as np
 from numpy import pi, sin, cos, sqrt, cross
 from numpy.linalg import norm
 
-n = 9
+n = 7
 max_length = 0.5
 dh = np.random.random_sample((n,4)) * 2 * max_length - max_length
+dh = [[pi/6, 0, 0.25, pi/3]] * n
 q = np.zeros((n,))
 jt = ['r'] * len(dh)
 tip = se3()
@@ -16,8 +17,7 @@ viz.add_arm(arm, draw_frames=False)
 
 viz.update()
 
-A_target = arm.fk(np.random.random_sample((n,)))
-viz.add_frame(A_target)
+
 viz.update(q)
 
 max_speed = 0.05
@@ -29,15 +29,37 @@ print(dq)
 #     q = q + dq
 #     viz.update(q)
 
-sol = arm.ik(A_target,
-            method='pinv',
-            rep='rpy',
-            max_iter=np.inf,
-            tol=1e-3,
-            viz=viz,
-            min_delta=1e-5,
-            max_delta=10)
+count_q = 0
+count_rpy = 0
 
-print(sol)
+for i in range(10):
+    A_target = arm.fk(np.random.random_sample((n,)))
+    viz.add_frame(A_target)
+    sol = arm.ik(A_target,
+                 q0=q,
+                method='pinv',
+                rep='cart',
+                max_iter=np.inf,
+                tol=1e-3,
+                viz=viz,
+                min_delta=1e-5,
+                max_delta=0.01)
+    count_q += sol.status
+    q = sol.qf
+
+    viz.remove_frame()
+
+    # sol = arm.ik(A_target,
+    #              method='jt',
+    #              rep='cart',
+    #              max_iter=50,
+    #              tol=1e-3,
+    #              viz=viz,
+    #              min_delta=1e-5,
+    #              max_delta=0.1)
+    # count_rpy += sol.status
+
+print(count_q)
+print(count_rpy)
 
 viz.hold()

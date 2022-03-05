@@ -116,10 +116,10 @@ def euler2R(th1, th2, th3, order='xyz'):
     return clean_rotation_matrix(R)
 
 def R2q(R):
-    return np.array([0.5*sqrt(R[0, 0] + R[1, 1] + R[2, 2] + 1),
-                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(R[0, 0] - R[1, 1] - R[2, 2] + 1),
-                     0.5*np.sign(R[0, 2] - R[2, 0]) * sqrt(R[1, 1] - R[2, 2] - R[0, 0] + 1),
-                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(R[2, 2] - R[0, 0] - R[1, 1] + 1)])
+    return np.array([0.5*sqrt(np.abs(R[0, 0] + R[1, 1] + R[2, 2] + 1)),
+                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(np.abs(R[0, 0] - R[1, 1] - R[2, 2] + 1)),
+                     0.5*np.sign(R[0, 2] - R[2, 0]) * sqrt(np.abs(R[1, 1] - R[2, 2] - R[0, 0] + 1)),
+                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(np.abs(R[2, 2] - R[0, 0] - R[1, 1] + 1))])
 
 def q2R(q):
     nu = q[0]
@@ -195,3 +195,65 @@ def A2q(A):
 def A2x(A):
     return np.hstack((A[0:3, 3], np.reshape(A[np.ix_([0,1,2], [0,2])], 6, 'F')))
 
+def A2cart(A):
+    return A[0:3, 3]
+
+def A2pose(A, pose='q'):
+    def f(x):
+        return {
+            'rpy': A2rpy(A),
+            'planar': A2planar(A),
+            'axis': A2axis(A),
+            'q': A2q(A),
+            'quat': A2q(A),
+            'x': A2x(A),
+            'cart': A2cart(A)
+        }.get(pose, A2q(A))
+    return f(pose)
+
+def Erpy(x):
+    spsi = sin(x[0])
+    cpsi = cos(x[0])
+    sth = sin(x[1])
+    cth = cos(x[1])
+    E = np.array([[0, -spsi, cth*cpsi],
+                  [0, cpsi, cth*spsi],
+                  [1, 0, -sth]])
+    return E
+
+def invErpy(x):
+    spsi = sin(x[0])
+    cpsi = cos(x[0])
+    sth = sin(x[1])
+    cth = cos(x[1])
+    if np.abs(np.abs(np.mod(x[1], np.pi)) - np.pi) < 1e-6:
+        E = np.array([[0, 0, 0.5],
+                      [-spsi, cpsi, 0],
+                      [0, 0, 0.5]])
+    else:
+        E = np.array([[cpsi*sth/cth, sth*spsi/cth, 1],
+                      [-spsi, cpsi, 0],
+                      [cpsi/cth, spsi/cth, 0]])
+    return E
+
+def Eaxis(x):
+    E = np.hstack((x[1:4,None], sin(x[0])*np.eye(3) + (1-cos(x[0]))*skew(x[1:4])))
+    return E
+
+def invEaxis(x):
+    E = np.vstack((x[1:4], -sin(x[0]) / 2 / (1 - cos(x[0])) * skew(x[1:4])**2 - skew(x[1:4]) / 2))
+    return E
+
+def Equat(x):
+    H = np.hstack((-x[1:4, None], skew(x[1:4]) + x[0]*np.eye(3)))
+    return 2 * H
+
+def invEquat(x):
+    H = np.hstack((-x[1:4, None], skew(x[1:4]) + x[0] * np.eye(3)))
+    return H.T / 2
+
+def padE(E):
+    m = E.shape[0]
+    n = E.shape[1]
+    return np.block([[np.eye(3), np.zeros((3,n))],
+                     [np.zeros((m,3)), E]])

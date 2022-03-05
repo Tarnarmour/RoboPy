@@ -16,6 +16,9 @@ def wrap_angle(q):
     return q
 
 def skew(v):
+    if hasattr(v[0], '__len__'):
+        print("Input to skew(v) must be 1 dimensional!")
+        return None
     return np.array([[0, -v[2], v[1]],
                      [v[2], 0, -v[0]],
                      [-v[1], v[0], 0]])
@@ -28,6 +31,35 @@ def clean_rotation_matrix(R, eps=1e-12):
             elif np.abs(R[i, j] - 1) < eps:
                 R[i, j] = 1.
     return R
+
+def mprint(A, p=3, eps=1e-12):
+    if isinstance(A, (np.ndarray)):
+        if A.ndim == 2:
+            with np.printoptions(precision=p, suppress=True, floatmode='fixed', linewidth=200):
+                print(clean_rotation_matrix(A, eps))
+                return
+        elif A.ndim > 2:
+            print('[ ')
+            for i in range(len(A)):
+                mprint(A[i], p)
+                if i < len(A) - 1:
+                    print(', ')
+            print(']\n')
+        else:
+            with np.printoptions(precision=p, suppress=True, floatmode='fixed', linewidth=200):
+                print(A)
+                return
+    elif hasattr(A, '__len__'):
+        print('[ ')
+        for i in range(len(A)):
+            mprint(A[i], p)
+            if i < len(A) - 1:
+                print(', ')
+        print(']\n')
+    else:
+        with np.printoptions(precision=p, suppress=True, floatmode='fixed'):
+            print(A)
+            return
 
 if __name__ == '__main__':
     q1 = np.pi + 1

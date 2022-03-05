@@ -10,7 +10,9 @@ https://github.com/Tarnarmour/RoboPy.git
 """
 
 import numpy as np
-from .kinematics import SerialArm
+from .kinematics import SerialArm, shift_gamma
+from .transforms import transl, se3
+from .utility import skew
 
 eye = np.eye(4)
 
@@ -25,13 +27,13 @@ class SerialArmDyn(SerialArm):
                  r_com=None,
                  link_inertia=None,
                  motor_inertia=None):
-        kin.SerialArm.__init__(self, dh, jt, base, tip, joint_limits)
+        SerialArm.__init__(self, dh, jt, base, tip, joint_limits)
         self.mass = mass
         self.r_com = r_com
         self.link_inertia = link_inertia
         self.motor_inertia = motor_inertia
 
-    def RNE(self, q, qd, qdd,
+    def rne(self, q, qd, qdd,
             Wext=np.zeros((6,)),
             g=np.zeros((3,)),
             omega_base=np.zeros((3,)),
@@ -121,3 +123,114 @@ class SerialArmDyn(SerialArm):
 
         return tau, Wrench
 
+    def jacobdot_com(self, q, qd, index, base=False, tip=False):
+
+        if index is None:
+            index = self.n
+        elif index > self.n:
+            print("WARNING: Index greater than number of joints!")
+            print(f"Index: {index}")
+            return None
+        elif index < 1:
+            print("WARNING: Index for Jacobdot cannot be less than 1!")
+            print(f"Index: {index}")
+            return None
+
+        Jdot = np.zeros((6, self.n))
+        Ae = self.fk(q, index) @ transl(self.r_com[index-1])
+        re = Ae[0:3, 0:3] @ self.r_com[index-1]
+        pe = Ae[0:3, 3]
+        xde = shift_gamma(re) @ self.jacob(q, index) @ qd
+        ve = xde[0:3]
+
+        for i in range(index):
+            Ac = self.fk(q, i)
+            pc = Ac[0:3, 3]
+            zc = Ac[0:3, 2]
+            xdc = self.jacob(q, i) @ qd
+            vc = xdc[0:3]
+            wc = xdc[3:6]
+            Jdot[0:3, i] = np.cross(zc, ve - vc) + np.cross(np.cross(wc, zc), pe - pc)
+            Jdot[3:6, i] = np.cross(wc, zc)
+
+        return Jdot
+
+    def get_M(self, q):
+        M = np.zeros((self.n, self.n))
+
+        for i in range(self.n):
+            A = self.fk(q, i+1)
+            R = A[0:3, 0:3]
+            ri = R @ self.r_com[i]
+            J = shift_gamma(ri) @ self.jacob(q, i + 1)
+            Jv = J[0:3, :]
+            Jw = J[3:6, :]
+            M += self.mass[i] * Jv.T @ Jv + Jw.T @ R @ self.link_inertia[i] @ R.T @ Jw
+
+        return M
+
+    def get_C(self, q, qd, Mdot=False):
+
+        C = np.zeros((self.n, self.n))
+        Mdot = np.zeros((self.n, self.n))
+        for i in range(self.n):
+            Ac = self.fk(q, i+1) @ transl(self.r_com[i])
+            R = Ac[0:3, 0:3]
+            rc = R @ self.r_com[i]
+            J = shift_gamma(rc) @ self.jacob(q, i+1)
+            Jv = J[0:3, :]
+            Jw = J[3:6, :]
+            Jd = self.jacobdot_com(q, qd, i+1)
+            Jvd = Jd[0:3, :]
+            Jwd = Jd[3:6, :]
+            Rd = skew(Jw @ qd) @ R
+            m = self.mass[i]
+            In = self.link_inertia[i]
+            C = C + m * Jv.T @ Jvd + Jw.T @ R @ In @ R.T @ Jwd + Jw.T @ Rd @ In @ R.T @ Jw
+
+            Ind = R @ In @ Rd.T + Rd @ In @ R.T
+            Mdot = Mdot + m * (Jv.T @ Jvd + Jvd.T @ Jv) + Jw.T @ (In @ Jwd + Ind @ Jw) + Jwd.T @ In @ Jw
+
+        if Mdot:
+            output = (C, Mdot)
+        else:
+            output = C
+        return output
+
+    def get_G(self, q, g=np.array([0, 0, -9.81])):
+
+        G = np.zeros((self.n,))
+        for i in range(self.n):
+            ri = self.fk(q, i+1)[0:3, 0:3] @ self.r_com[i]
+            J = shift_gamma(ri) @ self.jacob(q, i+1)
+            G = G - J.T @ np.hstack((g, np.zeros((3,))))
+
+        return G
+
+    def EL(self, q, qd, qdd, g=np.zeros([0, 0, 0]), Wext=np.zeros((6,))):
+
+        M = np.zeros((self.n, self.n))
+        C = np.zeros_like(M)
+        G = np.zeros((self.n,))
+
+        for i in range(self.n):
+            A = self.fk(q, i+1) @ transl(self.r_com[i])
+            R = A[0:3, 0:3]
+            r = R @ self.r_com[i]
+            J = shift_gamma(r) @ self.jacob(q, i + 1)
+            Jv = J[0:3, :]
+            Jw = J[3:6, :]
+            Jd = self.jacobdot_com(q, qd, i + 1)
+            Jvd = Jd[0:3, :]
+            Jwd = Jd[3:6, :]
+            Rd = skew(Jwd @ qd) @ R
+            m = self.mass[i]
+            In = self.link_inertia[i]
+
+            M = M + m * Jv.T @ Jv + Jw.T @ R @ In @ R.T @ Jw
+            C = C + m * Jv.T @ Jvd + Jw.T @ R @ In @ R.T @ Jwd + Jw.T @ Rd @ In @ R.T @ Jw
+            G = G - J.T @ np.hstack((g, np.zeros(3,)))
+
+        J = self.jacob(q)
+        tau = M @ qdd + C @ qd + G - J.T @ Wext
+        return tau

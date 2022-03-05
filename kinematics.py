@@ -188,6 +188,34 @@ class SerialArm:
 
         return J
 
+    def jacobdot(self, q, qd, index=None, base=False, tip=False):
+
+        if index is None:
+            index = self.n
+        elif index > self.n:
+            print("WARNING: Index greater than number of joints!")
+            print(f"Index: {index}")
+
+        Jdot = np.zeros((6, self.n), dtype=np.float32)
+        Te = self.fk(q, index, base=base, tip=tip)
+        pe = Te[0:3, 3]
+        Je = self.jacob(q, index, base, tip)
+        ve = Je[0:3, :] @ qd
+
+        for i in range(index):
+            if self.jt[i] == 'r':
+                T = self.fk(q, i, base=base, tip=tip)
+                z_axis = T[0:3, 2]
+                xd = self.jacob(q, i, base, tip) @ qd
+                Jdot[0:3, i] = np.cross(z_axis, ve - xd[0:3]) + np.cross(xd[3:6], Je[0:3, i])  # np.cross(np.cross(xd[3:6], z_axis), pe - pc)
+                Jdot[3:6, i] = np.cross(xd[3:6], z_axis)
+            else:
+                T = self.fk(q, i, base=base, tip=tip)
+                z_axis = T[0:3, 2]
+                Jdot[0:3, i] = np.cross(xd[3:6, z_axis])
+
+        return Jdot
+
     def jacoba(self, q, rep='rpy', index=None, eps=1e-4):
 
         if rep == 'rpy':
@@ -202,7 +230,8 @@ class SerialArm:
         elif rep == 'axis':
             def get_pose(q):
                 return A2axis(self.fk(q, index))
-        elif rep == 'q' or rep == 'quaternion':
+        elif rep == 'q' or rep == 'quaternion' or rep == 'quat':
+            return padE(invEquat(A2q(self.fk(q, index))[3:7])) @ self.jacob(q, index)
             def get_pose(q):
                 return A2q(self.fk(q, index))
         elif rep == 'x':
@@ -310,6 +339,19 @@ class SerialArm:
         output = IKOutput(q, xf, x_target, status, report, count, e, norm(e))
         return output
 
+    # def ik_pinv(self, At, fk, jacob):
+
+def shift_gamma(*args):
+    gamma = np.eye(6)
+    for x in args:
+        if len(x.shape) == 1:
+            # shifting by an offset
+            gamma_new = np.block([[np.eye(3), -skew(x)], [np.zeros((3,3)), np.eye(3)]])
+        else:
+            # rotation of jacobian
+            gamma_new = np.block([[x.T, np.zeros((3,3))], [np.zeros((3,3)), x.T]])
+        gamma = gamma @ gamma_new
+    return gamma
 
 class IKOutput:
     def __init__(self, qf, xf, xt, status, report, nit, ef, nef):
@@ -324,18 +366,4 @@ class IKOutput:
 
     def __str__(self):
         return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
-
-if __name__ == "__main__":
-    np.set_printoptions(precision=4, floatmode='maxprec', suppress=True)
-    pi = np.pi
-    dh = [[0, 0, 0.4, pi/2]] * 10
-    jt = ['r'] * 10
-    q0 = [0] * len(jt)
-    arm = SerialArm(dh, jt)
-    A_target = se3(rotz(np.pi/2), [1, 1, 1])
-
-    viz.addScatter(A_target[0:3, 3], np.array([0, 1, 0, 1]), 10)
-    output = arm.ik(A_target, q0, 'pinv', 'rpy', 300)
-
-    print(output)
 

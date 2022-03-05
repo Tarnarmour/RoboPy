@@ -12,7 +12,7 @@ if __name__ == '__main__':
     # or
     from RoboPy import *
 
-    """RoboPy is currently organized into 5 main modules: Transforms, Kinematics, dynamics, Simulation, and Visualization.
+    """RoboPy is currently organized into 5 main modules: transforms, kinematics, dynamics, simulation, and visualization.
     """
 
     # Transforms
