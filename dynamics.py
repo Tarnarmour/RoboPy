@@ -170,6 +170,9 @@ class SerialArmDyn(SerialArm):
         return M
 
     def get_C(self, q, qd, Mdot=False):
+        # See paper A new Coriolis matrix factorization
+        # Magnus Bjerkeng, member IEEE and Kristin Y. Pettersen, Senior member IEEE
+        # for derivation of C matrix
 
         C = np.zeros((self.n, self.n))
         Mdot = np.zeros((self.n, self.n))
