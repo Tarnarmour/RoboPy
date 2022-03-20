@@ -69,6 +69,7 @@ class SerialArm:
 
     """
 
+
     def __init__(self, dh, jt=None, base=eye, tip=eye, joint_limits=None):
         """
         arm = SerialArm(dh, joint_type, base=I, tip=I, radians=True, joint_limits=None)

@@ -27,6 +27,7 @@ class SerialArmDyn(SerialArm):
                  r_com=None,
                  link_inertia=None,
                  motor_inertia=None):
+
         SerialArm.__init__(self, dh, jt, base, tip, joint_limits)
         self.mass = mass
         self.r_com = r_com
