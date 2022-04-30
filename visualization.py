@@ -7,6 +7,10 @@ from matplotlib.widgets import Slider
 from .transforms import *
 from .kinematics import SerialArm
 
+from time import perf_counter
+from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton
+from PySide2.QtCore import QSize
+
 red = np.array([0.7, 0, 0, 1])
 green = np.array([0, 0.7, 0, 1])
 blue = np.array([0, 0, 0.7, 1])
@@ -317,9 +321,79 @@ class VizScene:
 
         self.app.processEvents()
 
-
     def hold(self):
         self.app.exec_()
+
+    def wander(self, index=None, q0=None, speed=1e-1, duration=np.inf, accel=5e-4):
+        if index is None:
+            index = range(len(self.arms))
+
+        tstart = perf_counter()
+        t = tstart
+        flag = True
+        qs = []
+        dqs = []
+
+        while t < tstart + duration:
+            for i, ind in enumerate(index):
+                n = self.arms[ind].n
+                if flag:
+                    if q0 is None:
+                        qs.append(np.zeros((n,)))
+                    else:
+                        qs.append(q0[i])
+                    # dqs.append(np.random.random_sample((n,)) * speed - speed / 2)
+                    dqs.append(np.zeros((n,)))
+
+                dqq = np.zeros((n,))
+                for j in range(n):
+                    s = dqs[i][j] / speed
+                    dqq[j] = dqq[j] + np.random.random_sample((1,)) * accel - accel / 2 - accel * s**3
+                dqs[i] = dqs[i] + dqq
+                qs[i] = qs[i] + dqs[i]
+                self.arms[ind].update(qs[i])
+
+            if flag:
+                flag = False
+            t = perf_counter()
+            self.app.processEvents()
+
+
+class ArmPlayer:
+    def __init__(self, arm):
+
+        self.app = pg.QtGui.QApplication([])
+        self.window = QMainWindow()
+        self.window.setGeometry(200, 300, 800, 500)
+        self.window.setWindowTitle("Arm Play")
+
+        self.main_layout = QHBoxLayout()
+        self.scene = gl.GLViewWidget()
+        self.range = 2 * arm.reach
+        self.scene.setCameraPosition(distance=self.range)
+        grid = gl.GLGridItem()
+        grid.scale(1, 1, 1)
+        self.scene.addItem(grid)
+        self.arm = ArmMeshObject(arm)
+        self.arm.update()
+        self.scene.addItem(self.arm)
+        self.scene.setBackgroundColor('k')
+        self.main_layout.addItem(self.scene)
+
+        self.slider_list = []
+
+        slider_box = QVBoxLayout()
+        for i in range(arm.n):
+            s = QSlider()
+            s.setWindowTitle(f'Joint {i + 1}')
+            self.slider_list.append(s)
+            slider_box.addItem(s)
+
+        self.app.processEvents()
+
+        self.app.exec_()
+
+
 
 
 class ArmMeshObject:

@@ -24,18 +24,18 @@ print(f"Mdot: \n{Mdot}\n")
 
 print(f"Mdot - 2C: \n{Mdot - 2 * C}\n")
 
-import TimingAnalysis as TA
-timer = TA.TimingAnalysis()
-timer.time_in("MAIN")
-for i in range(1000):
-    timer.time_in("rne")
-    tau_rne, wrench = arm.rne(q, qd, qdd, g=g)
-    timer.time_out("rne")
-    timer.time_in("el")
-    tau_el = arm.EL(q, qd, qdd, g=g)
-    timer.time_out("el")
-
-print(f"tau from RNE: \n{tau_rne}\n")
-print(f"tau from EL: \n{tau_el}\n")
-
-timer.report_all()
+# import TimingAnalysis as TA
+# timer = TA.TimingAnalysis()
+# timer.time_in("MAIN")
+# for i in range(1000):
+#     timer.time_in("rne")
+#     tau_rne, wrench = arm.rne(q, qd, qdd, g=g)
+#     timer.time_out("rne")
+#     timer.time_in("el")
+#     tau_el = arm.EL(q, qd, qdd, g=g)
+#     timer.time_out("el")
+#
+# print(f"tau from RNE: \n{tau_rne}\n")
+# print(f"tau from EL: \n{tau_el}\n")
+#
+# timer.report_all()

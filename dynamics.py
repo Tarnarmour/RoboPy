@@ -170,7 +170,7 @@ class SerialArmDyn(SerialArm):
 
         return M
 
-    def get_C(self, q, qd, Mdot=False):
+    def get_C(self, q, qd, get_mdot=False):
         # See paper A new Coriolis matrix factorization
         # Magnus Bjerkeng, member IEEE and Kristin Y. Pettersen, Senior member IEEE
         # for derivation of C matrix
@@ -195,7 +195,7 @@ class SerialArmDyn(SerialArm):
             Ind = R @ In @ Rd.T + Rd @ In @ R.T
             Mdot = Mdot + m * (Jv.T @ Jvd + Jvd.T @ Jv) + Jw.T @ (In @ Jwd + Ind @ Jw) + Jwd.T @ In @ Jw
 
-        if Mdot:
+        if get_mdot:
             output = (C, Mdot)
         else:
             output = C

@@ -15,6 +15,30 @@ def wrap_angle(q):
         q = f(q)
     return q
 
+def wrap_relative(q1, q2):
+    if hasattr(q1, '__iter__'):
+        if hasattr(q2, '__iter__'):
+            for i, (r, w) in enumerate(zip(q1, q2)):
+                while r - w > np.pi:
+                    r = r - 2 * np.pi
+                while r - w < -np.pi:
+                    r = r + 2 * np.pi
+                q1[i] = r
+        else:
+            for i, r in enumerate(q1):
+                while r - q2 > np.pi:
+                    r = r - 2 * np.pi
+                while r - q2 < -np.pi:
+                    r = r + 2 * np.pi
+                q1[i] = r
+    else:
+        while q1 - q2 > np.pi:
+            q1 = q1 - 2 * np.pi
+        while q1 - q2 < -np.pi:
+            q1 = q1 + 2 * np.pi
+    return q1
+
+
 def skew(v):
     if hasattr(v[0], '__len__'):
         print("Input to skew(v) must be 1 dimensional!")

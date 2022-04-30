@@ -17,22 +17,22 @@ viz.add_arm(arm, draw_frames=False)
 
 viz.update()
 
-
 viz.update(q)
 
 max_speed = 0.05
 
 dq = np.random.random_sample((n,)) * 2 * max_speed - max_speed
-print(dq)
+count = 0
+while count < 300:
+    q = q + dq
+    viz.update(q)
+    count += 1
 
-# while True:
-#     q = q + dq
-#     viz.update(q)
 
 count_q = 0
 count_rpy = 0
 
-for i in range(10):
+for i in range(3):
     A_target = arm.fk(np.random.random_sample((n,)))
     viz.add_frame(A_target)
     sol = arm.ik(A_target,
@@ -49,17 +49,13 @@ for i in range(10):
 
     viz.remove_frame()
 
-    # sol = arm.ik(A_target,
-    #              method='jt',
-    #              rep='cart',
-    #              max_iter=50,
-    #              tol=1e-3,
-    #              viz=viz,
-    #              min_delta=1e-5,
-    #              max_delta=0.1)
-    # count_rpy += sol.status
 
 print(count_q)
 print(count_rpy)
+
+
+viz.wander(duration=10.0, q0=[q])
+
+
 
 viz.hold()
