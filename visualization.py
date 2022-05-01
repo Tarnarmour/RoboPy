@@ -1,3 +1,5 @@
+from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton
+from PySide2.QtCore import QSize
 import pyqtgraph.opengl as gl
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
@@ -8,8 +10,6 @@ from .transforms import *
 from .kinematics import SerialArm
 
 from time import perf_counter
-from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton
-from PySide2.QtCore import QSize
 
 red = np.array([0.7, 0, 0, 1])
 green = np.array([0, 0.7, 0, 1])
@@ -368,26 +368,27 @@ class ArmPlayer:
         self.window.setWindowTitle("Arm Play")
 
         self.main_layout = QHBoxLayout()
-        self.scene = gl.GLViewWidget()
-        self.range = 2 * arm.reach
-        self.scene.setCameraPosition(distance=self.range)
+        w1 = gl.GLViewWidget()
         grid = gl.GLGridItem()
         grid.scale(1, 1, 1)
-        self.scene.addItem(grid)
+        w1.addItem(grid)
         self.arm = ArmMeshObject(arm)
-        self.arm.update()
-        self.scene.addItem(self.arm)
-        self.scene.setBackgroundColor('k')
-        self.main_layout.addItem(self.scene)
-
-        self.slider_list = []
-
-        slider_box = QVBoxLayout()
+        w1.addItem(self.arm.mesh_object)
+        w2 = QVBoxLayout()
         for i in range(arm.n):
             s = QSlider()
-            s.setWindowTitle(f'Joint {i + 1}')
-            self.slider_list.append(s)
-            slider_box.addItem(s)
+            s.setWindowTitle(f"Joint {i + 1}")
+            w2.addWidget(s)
+        button = QPushButton()
+        w2.addWidget(button)
+        self.main_layout.addWidget(w1)
+        self.main_layout.addLayout(w2)
+
+        w = QWidget()
+        w.setLayout(self.main_layout)
+        self.window.setCentralWidget(w)
+        self.window.show()
+        self.window.raise_()
 
         self.app.processEvents()
 
