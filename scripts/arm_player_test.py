@@ -1,5 +1,5 @@
 import RoboPy as rp
 
-arm = rp.HumanArm()
+arm = rp.PlanarDyn(n=4, L=1)
 
 player = rp.ArmPlayer(arm)

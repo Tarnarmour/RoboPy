@@ -1,5 +1,8 @@
-from PySide2.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton
+import numpy as np
+from PySide2.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton,
+                               QSizePolicy, QLabel)
 from PySide2.QtCore import QSize
+from PySide2.QtCore import Qt
 import pyqtgraph.opengl as gl
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
@@ -373,16 +376,33 @@ class ArmPlayer:
         grid.scale(1, 1, 1)
         w1.addItem(grid)
         self.arm = ArmMeshObject(arm)
+        self.n = arm.n
         w1.addItem(self.arm.mesh_object)
+        w1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         w2 = QVBoxLayout()
+        self.slider_list = []
+        self.slider_label_list = []
         for i in range(arm.n):
-            s = QSlider()
-            s.setWindowTitle(f"Joint {i + 1}")
-            w2.addWidget(s)
+            t = QLabel()
+            t.setText(f"Joint {i + 1}: 0.0 degrees")
+            t.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            s = QSlider(Qt.Horizontal)
+            s.setMinimum(-360)
+            s.setMaximum(360)
+            s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            s.sliderMoved.connect(self.update_sliders)
+            self.slider_list.append(s)
+            self.slider_label_list.append(t)
+            w2.addWidget(t, stretch=1)
+            w2.addWidget(s, stretch=2)
         button = QPushButton()
+        button.setText("Randomize")
+        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        button.pressed.connect(self.button_pressed)
+        self.random_button = button
         w2.addWidget(button)
-        self.main_layout.addWidget(w1)
-        self.main_layout.addLayout(w2)
+        self.main_layout.addWidget(w1, stretch=3)
+        self.main_layout.addLayout(w2, stretch=1)
 
         w = QWidget()
         w.setLayout(self.main_layout)
@@ -394,6 +414,28 @@ class ArmPlayer:
 
         self.app.exec_()
 
+    def update_sliders(self):
+
+        qs = np.zeros((self.n,))
+
+        for i, s in enumerate(self.slider_list):
+            q = s.value()
+            qs[i] = q / 2 * np.pi / 180
+            self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
+
+        self.arm.update(qs)
+
+    def button_pressed(self):
+
+        qs = np.random.random_sample((self.n,)) * 2 * np.pi - np.pi
+
+        for i, z in enumerate(zip(self.slider_list, qs)):
+            s, q1 = z[0], z[1]
+            q = int(180 / np.pi * 2 * q1)
+            s.setValue(q)
+            self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
+
+        self.arm.update(qs)
 
 
 
