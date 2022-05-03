@@ -2,6 +2,7 @@ import RoboPy as rp
 import numpy as np
 from numpy import pi, eye
 import sympy as sp
+from time import perf_counter
 
 dh = [[0, 0, 1, 0], [0, 0, 1, 0]]
 link_masses = [1, 1]
@@ -23,6 +24,32 @@ print(f"G: \n{G}\n")
 print(f"Mdot: \n{Mdot}\n")
 
 print(f"Mdot - 2C: \n{Mdot - 2 * C}\n")
+
+Wext = np.array([1, 2, 3, 4, 5, 6])
+
+tau = arm.rne(q, qd, qdd, Wext, g)
+print(f"tau: {tau}")
+print(f"qdd inv: {qdd}")
+qdd2 = arm.forward_rne(q, qd, tau, g=g, Wext=Wext)
+qdd3 = arm.forward_EL(q, qd, tau, g=g, Wext=Wext)
+print(f"qdds forward: {qdd2}, {qdd3}")
+
+tick = perf_counter()
+
+for i in range(1000):
+    qdd = arm.forward_rne(q, qd, tau, g=g, Wext=Wext)
+
+print(perf_counter() - tick)
+
+tick = perf_counter()
+
+for i in range(1000):
+    qdd = arm.forward_EL(q, qd, tau, g=g, Wext=Wext)
+
+print(perf_counter() - tick)
+
+
+
 
 # import TimingAnalysis as TA
 # timer = TA.TimingAnalysis()

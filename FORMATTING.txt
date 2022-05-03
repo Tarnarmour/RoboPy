@@ -1,0 +1,44 @@
+This document contains details on formatting and styling for doc strings, etc.
+
+DOC STRING FORMAT
+
+- Classes: At the class definition, there should be a doc string giving the name and a description of the object
+represented by the class, followed by a list of attributes and methods, as shown below:
+
+"""
+    MyClass
+    Description:
+        This class defines an object which does things
+
+    Attributes:
+        a - int, a number
+        b - list, a list of things
+        c - 4 x 4 np.array, an array of numbers
+
+    Methods:
+        f1 - returns a value
+        f2 - returns another value
+"""
+
+- Functions: A doc string should have a first line describing a sample of calling the function with returns, and which
+shows the default values for parameters with default values. Following this should be a qualitative description of the
+function, a list of parameters, and a list of returns, as shown below:
+
+"""
+    y = func(x, z=0.0)
+    Description:
+        This function does a thing
+
+    Parameters:
+        x - string, an array of chars
+        z - float, a number, defaults to 0.0
+
+    Returns:
+        y - int, a number
+"""
+
+COMMENT FORMAT
+
+Comments in code should be done using #. It is strongly preferred to have comments around blocks of code, rather than
+line by line, to explain the general details of stuff. Only give line by line comments when a particularly important
+and confusing operation is performed.

@@ -17,7 +17,16 @@ from .utility import *
 
 data_type = np.float64
 
+
+## 2D Transformations
 def rot2(th):
+    """
+    R = rot2(theta)
+    Parameters
+        theta: float or int, angle of rotation
+    Returns
+        R: 2 x 2 numpy array representing rotation by theta
+    """
     R = np.array([[cos(th), -sin(th)], [sin(th), cos(th)]], dtype=data_type)
     return clean_rotation_matrix(R)
 

@@ -39,7 +39,8 @@ class SerialArmDyn(SerialArm):
             g=np.zeros((3,)),
             omega_base=np.zeros((3,)),
             alpha_base=np.zeros((3,)),
-            acc_base=np.zeros((3,))):
+            acc_base=np.zeros((3,)),
+            return_wrench=False):
 
         omegas = []
         alphas = []
@@ -122,7 +123,12 @@ class SerialArmDyn(SerialArm):
         Wrench[0:3] = -Rs[0] @ forces[0]
         Wrench[3:6] = -Rs[0] @ moments[0]
 
-        return tau, Wrench
+        if not return_wrench:
+            output = tau
+        else:
+            output = (tau, Wrench)
+
+        return output
 
     def jacobdot_com(self, q, qd, index, base=False, tip=False):
 
@@ -211,14 +217,14 @@ class SerialArmDyn(SerialArm):
 
         return G
 
-    def EL(self, q, qd, qdd, g=np.zeros([0, 0, 0]), Wext=np.zeros((6,))):
+    def get_MCG(self, q, qd, g=np.array([0, 0, -9.81])):
 
         M = np.zeros((self.n, self.n))
         C = np.zeros_like(M)
         G = np.zeros((self.n,))
 
         for i in range(self.n):
-            A = self.fk(q, i+1) @ transl(self.r_com[i])
+            A = self.fk(q, i + 1) @ transl(self.r_com[i])
             R = A[0:3, 0:3]
             r = R @ self.r_com[i]
             J = shift_gamma(r) @ self.jacob(q, i + 1)
@@ -233,8 +239,33 @@ class SerialArmDyn(SerialArm):
 
             M = M + m * Jv.T @ Jv + Jw.T @ R @ In @ R.T @ Jw
             C = C + m * Jv.T @ Jvd + Jw.T @ R @ In @ R.T @ Jwd + Jw.T @ Rd @ In @ R.T @ Jw
-            G = G - J.T @ np.hstack((g, np.zeros(3,)))
+            G = G - J.T @ np.hstack((g, np.zeros(3, )))
 
+        return M, C, G
+
+    def EL(self, q, qd, qdd, g=np.zeros([0, 0, 0]), Wext=np.zeros((6,))):
+
+        M, C, G = self.get_MCG(q, qd, g=np.array([0, 0, -9.81]))
         J = self.jacob(q)
         tau = M @ qdd + C @ qd + G - J.T @ Wext
         return tau
+
+    def forward_rne(self, q, qd, tau, g=np.array([0, 0, -9.81]), Wext=np.zeros((6,))):
+
+        B = self.rne(q, qd, np.zeros((self.n,)), g=g, Wext=Wext)
+        M = np.zeros((self.n, self.n))
+
+        for i in range(self.n):
+            qdd_fake = np.zeros((self.n,))
+            qdd_fake[i] = 1.0
+            M[:, i] = self.rne(q, np.zeros((self.n,)), qdd_fake)
+
+        qdd = np.linalg.solve(M, tau - B)
+        return qdd
+
+    def forward_EL(self, q, qd, tau, g=np.array([0, 0, -9.81]), Wext=np.zeros((6,))):
+
+        M, C, G = self.get_MCG(q, qd, g)
+        J = self.jacob(q)
+        qdd = np.linalg.solve(M, tau - C @ qd - G + J.T @ Wext)
+        return qdd
