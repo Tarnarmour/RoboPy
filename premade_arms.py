@@ -17,7 +17,7 @@ def HumanArm(L1=0.3, L2=0.285):
           [0, 0, 0, -pi/2]]
     return SerialArm(dh, base=se3(roty(pi/2)), tip=se3(rotz(pi/2)))
 
-def PlanarDyn(n=3, L=1):
+def PlanarDyn(n=3, L=1, joint_damping=None):
 
     if isinstance(L, (list, np.ndarray, tuple)):
         if len(L) == n:
@@ -40,5 +40,5 @@ def PlanarDyn(n=3, L=1):
         link_inertias.append(In)
         dh.append([0, 0, ll, 0])
 
-    arm = SerialArmDyn(dh, link_inertia=link_inertias, mass=mass, r_com=r_coms)
+    arm = SerialArmDyn(dh, link_inertia=link_inertias, mass=mass, r_com=r_coms, joint_damping=joint_damping)
     return arm

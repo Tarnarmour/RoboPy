@@ -11,6 +11,7 @@ https://github.com/Tarnarmour/RoboPy.git
 
 from .utility import *
 from .transforms import *
+from dataclasses import dataclass
 
 eye = np.eye(4, dtype=np.float32)
 pi = np.pi
@@ -312,10 +313,13 @@ class SerialArm:
         while norm(e) > tol:
             count += 1
             qd = get_qd(q, e)
-            if norm(qd) > max_delta:
-                qd = qd / norm(qd) * max_delta
-            while norm(get_pose(self.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
-                qd = qd * 0.5
+            if norm(qd) < 1e-16:  # get out of singularities
+                qd += np.random.random_sample((self.n,)) * 0.002 - 0.001
+            else:
+                if norm(qd) > max_delta:
+                    qd = qd / norm(qd) * max_delta
+                while norm(get_pose(self.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
+                    qd = qd * 0.5
 
             q = q + qd
             for i in range(self.n):
@@ -338,6 +342,12 @@ class SerialArm:
                 break
         xf = get_pose(self.fk(q))
         output = IKOutput(q, xf, x_target, status, report, count, e, norm(e))
+
+        if not output.status:
+            # print(f"Trying from new starting point, {report}")
+            q0 += (np.random.random_sample((self.n,)) * 2 * pi - pi) * 0.05
+            output = self.ik(A_target, q0, method, rep, max_iter, tol, viz, min_delta, max_delta)
+
         return output
 
     # def ik_pinv(self, At, fk, jacob):
@@ -354,6 +364,7 @@ def shift_gamma(*args):
         gamma = gamma @ gamma_new
     return gamma
 
+# change to dataclass
 class IKOutput:
     def __init__(self, qf, xf, xt, status, report, nit, ef, nef):
         self.qf = qf

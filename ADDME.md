@@ -1,7 +1,7 @@
-1) Simulation (RK4 stepping)
+1) <s> Simulation (RK4 stepping) </s>
 2) Trajectory
 3) <s> Sliders </s> 
-4) Forward Dynamics: RNE and EL
+4) <s> Forward Dynamics: RNE and EL </s>
 5) List of premade arms, like panda, baxter, stanford, HUMAN ARM, etc.
 6) Wrap auto-differentiation around fk, jacob, and dynamics methods
 7) Pull IK into its own module, it's just too messy currently, and give it a wrapper function that calls different 
@@ -12,3 +12,9 @@ in the scene. Maybe you should be getting handles to the specific objects inside
 list of update parameters in. This would make using VizScenes inside of stuff like IK or simulation work better for 
 multiple object scenes.
 9) Viscous damping on dynamics
+10) Improve simulation setup, should have an integrated method to take care of weird
+damping stuff going on. Or maybe that needs to be in forward dynamics?
+11) Joint Limits, with integrated FK, IK, and simulation stuff
+12) Control module, enabling control functions or some common control methods to be passed in
+13) Simulation module should include linearization and step responses
+14) Make sliders on play function taller when possible.

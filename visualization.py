@@ -12,7 +12,7 @@ from matplotlib.widgets import Slider
 from .transforms import *
 from .kinematics import SerialArm
 
-from time import perf_counter
+from time import perf_counter, sleep
 
 red = np.array([0.7, 0, 0, 1])
 green = np.array([0, 0.7, 0, 1])
@@ -323,6 +323,7 @@ class VizScene:
                 self.markers[0].setData(pos=pos)
 
         self.app.processEvents()
+        sleep(0.00001)
 
     def hold(self):
         self.app.exec_()
@@ -384,7 +385,7 @@ class ArmPlayer:
         self.slider_label_list = []
         for i in range(arm.n):
             t = QLabel()
-            t.setText(f"Joint {i + 1}: 0.0 degrees")
+            t.setText(f"Joint {i + 1}: 0 degrees")
             t.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             s = QSlider(Qt.Horizontal)
             s.setMinimum(-360)
@@ -394,7 +395,7 @@ class ArmPlayer:
             self.slider_list.append(s)
             self.slider_label_list.append(t)
             w2.addWidget(t, stretch=1)
-            w2.addWidget(s, stretch=2)
+            w2.addWidget(s, stretch=3)
         button = QPushButton()
         button.setText("Randomize")
         button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)

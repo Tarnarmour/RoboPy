@@ -26,13 +26,18 @@ class SerialArmDyn(SerialArm):
                  mass=None,
                  r_com=None,
                  link_inertia=None,
-                 motor_inertia=None):
+                 motor_inertia=None,
+                 joint_damping=None):
 
         SerialArm.__init__(self, dh, jt, base, tip, joint_limits)
         self.mass = mass
         self.r_com = r_com
         self.link_inertia = link_inertia
         self.motor_inertia = motor_inertia
+        if joint_damping is None:
+            self.B = np.zeros((self.n, self.n))
+        else:
+            self.B = np.diag(joint_damping)
 
     def rne(self, q, qd, qdd,
             Wext=np.zeros((6,)),
@@ -51,6 +56,9 @@ class SerialArmDyn(SerialArm):
 
         forces = ['empty'] * self.n
         moments = ['empty'] * self.n
+        b = self.B @ qd
+        b = np.outer(b, np.array([0, 0, 1]))
+        # print(b)
 
         Rs = []
         R0s = []
@@ -98,15 +106,17 @@ class SerialArmDyn(SerialArm):
                 F_previous = -Rn_0 @ Wext[0:3]
                 M_previous = -Rn_0 @ Wext[3:6]
                 g_current = Rn_0 @ g
+                drag = b[i]
             else:
                 Ri_0 = R0s[i].T
                 F_previous = Rs[i+1] @ forces[i+1]
                 M_previous = Rs[i+1] @ moments[i+1]
                 g_current = Ri_0 @ g
+                drag = b[i] - b[i + 1]
 
             F_current = F_previous + self.mass[i] * (acc_coms[i] - g_current)
             dMomentum = self.link_inertia[i] @ alphas[i] + np.cross(omegas[i], self.link_inertia[i] @ omegas[i], axis=0)
-            M_current = dMomentum + M_previous + np.cross(self.r_com[i], -F_previous, axis=0) + np.cross(rp2coms[i], F_current, axis=0)
+            M_current = dMomentum + M_previous + np.cross(self.r_com[i], -F_previous, axis=0) + np.cross(rp2coms[i], F_current, axis=0) + drag
 
             forces[i] = F_current
             moments[i] = M_current
@@ -115,9 +125,11 @@ class SerialArmDyn(SerialArm):
 
         for i in range(self.n):
             if self.jt[i] == 'r':
-                tau[i] = zaxes[i].T @ moments[i]
+                tau[i] = zaxes[i] @ moments[i]
             else:
-                tau[i] = zaxes[i].T @ forces[i]
+                tau[i] = zaxes[i] @ forces[i]
+
+        # tau = tau - b
 
         Wrench = np.zeros((6,))
         Wrench[0:3] = -Rs[0] @ forces[0]
@@ -217,7 +229,7 @@ class SerialArmDyn(SerialArm):
 
         return G
 
-    def get_MCG(self, q, qd, g=np.array([0, 0, -9.81])):
+    def get_MCG(self, q, qd, g=np.array([0, 0, 0])):
 
         M = np.zeros((self.n, self.n))
         C = np.zeros_like(M)
@@ -243,11 +255,12 @@ class SerialArmDyn(SerialArm):
 
         return M, C, G
 
-    def EL(self, q, qd, qdd, g=np.zeros([0, 0, 0]), Wext=np.zeros((6,))):
+    def EL(self, q, qd, qdd, Wext=np.zeros((6,)), g=np.array([0, 0, 0])):
 
-        M, C, G = self.get_MCG(q, qd, g=np.array([0, 0, -9.81]))
+        M, C, G = self.get_MCG(q, qd, g=g)
+        b = self.B @ qd
         J = self.jacob(q)
-        tau = M @ qdd + C @ qd + G - J.T @ Wext
+        tau = M @ qdd + C @ qd + G - J.T @ Wext + b
         return tau
 
     def forward_rne(self, q, qd, tau, g=np.array([0, 0, -9.81]), Wext=np.zeros((6,))):
@@ -266,6 +279,7 @@ class SerialArmDyn(SerialArm):
     def forward_EL(self, q, qd, tau, g=np.array([0, 0, -9.81]), Wext=np.zeros((6,))):
 
         M, C, G = self.get_MCG(q, qd, g)
+        b = self.B @ qd
         J = self.jacob(q)
-        qdd = np.linalg.solve(M, tau - C @ qd - G + J.T @ Wext)
+        qdd = np.linalg.solve(M, tau - C @ qd - G + J.T @ Wext - b)
         return qdd
