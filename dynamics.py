@@ -219,7 +219,7 @@ class SerialArmDyn(SerialArm):
             output = C
         return output
 
-    def get_G(self, q, g=np.array([0, 0, -9.81])):
+    def get_G(self, q, g=np.array([0, 0, 0])):
 
         G = np.zeros((self.n,))
         for i in range(self.n):
@@ -228,6 +228,16 @@ class SerialArmDyn(SerialArm):
             G = G - J.T @ np.hstack((g, np.zeros((3,))))
 
         return G
+
+    def get_KE(self, q, qd):
+        M = self.get_M(q)
+        return qd.T @ M @ qd
+
+    def get_PE(self, q, g=np.array([0, 0, 0])):
+        PE = 0.0
+        for i in range(1, self.n + 1):
+            PE += self.fk(q, index=i)[0:3, 3] @ g * self.mass[i - 1]
+        return PE
 
     def get_MCG(self, q, qd, g=np.array([0, 0, 0])):
 
@@ -263,7 +273,7 @@ class SerialArmDyn(SerialArm):
         tau = M @ qdd + C @ qd + G - J.T @ Wext + b
         return tau
 
-    def forward_rne(self, q, qd, tau, g=np.array([0, 0, -9.81]), Wext=np.zeros((6,))):
+    def forward_rne(self, q, qd, tau, g=np.array([0, 0, 0]), Wext=np.zeros((6,))):
 
         B = self.rne(q, qd, np.zeros((self.n,)), g=g, Wext=Wext)
         M = np.zeros((self.n, self.n))
@@ -276,7 +286,7 @@ class SerialArmDyn(SerialArm):
         qdd = np.linalg.solve(M, tau - B)
         return qdd
 
-    def forward_EL(self, q, qd, tau, g=np.array([0, 0, -9.81]), Wext=np.zeros((6,))):
+    def forward_EL(self, q, qd, tau, g=np.array([0, 0, 0]), Wext=np.zeros((6,))):
 
         M, C, G = self.get_MCG(q, qd, g)
         b = self.B @ qd

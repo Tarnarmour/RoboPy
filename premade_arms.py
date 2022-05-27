@@ -42,3 +42,10 @@ def PlanarDyn(n=3, L=1, joint_damping=None):
 
     arm = SerialArmDyn(dh, link_inertia=link_inertias, mass=mass, r_com=r_coms, joint_damping=joint_damping)
     return arm
+
+def SimpleDynArm(dh, linear_density=1.0, damping=0.1):
+    mass = []
+    r_com = []
+    link_inertia = []
+    joint_damping = []
+

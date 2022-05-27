@@ -18,3 +18,6 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 12) Control module, enabling control functions or some common control methods to be passed in
 13) Simulation module should include linearization and step responses
 14) Make sliders on play function taller when possible.
+15) Make general dynamic arm creator with linear density
+16) <s> Kinetic and Potential Energy calculation </s>
+17) Make real decision about gravity and external wrench convention and standardize
