@@ -564,6 +564,50 @@ def angle_linspace(q0, qf, n, endpoint=True):
     qs = np.linspace(q0, qf, n, endpoint=endpoint)
     return qs
 
+def quat_product(q1, q2):
+    a1, b1, c1, d1 = q1
+    a2, b2, c2, d2 = q2
+    q3 = np.array([a1*a2 - b1*b2 - c1*c2 - d1*d2,
+                   a1*b2 + b1*a2 + c1*d2 - d1*c2,
+                   a1*c2 - b1*d2 + c1*a2 + d1*b2,
+                   a1*d2 + b1*c2 - c1*b2 + d1*a2])
+    return q3
+
+def quat_conj(q1):
+    a, b, c, d = q1
+    qconj = np.array([a, -b, -c, -d])
+    return qconj
+
+def quat_norm(q1):
+    n = np.linalg.norm(q1)
+    return n
+
+def quat_inverse(q1):
+    qinv = quat_conj(q1) / quat_norm(q1)
+    return qinv
+
+def quat_polar(q1):
+    a, b, c, d = q1
+    n = np.array([b, c, d]) / np.linalg.norm(np.array([b, c, d]))
+    varphi = np.arccos(a / quat_norm(q1))
+    return n, varphi
+
+def quat_power(q1, x):
+    n, varphi = quat_polar(q1)
+    q2 = quat_norm(q1)**x * np.append(np.cos(x * varphi), n * np.sin(x * varphi))
+    return q2
+
+def quat_ln(q1):
+    a1, v1 = q1[0], q1[1:4]
+    a2 = np.log(quat_norm(q1))
+    v2 = v1 / np.linalg.norm(v1) * np.arccos(a1 / quat_norm(q1))
+    q2 = np.array([a2, v2[0], v2[1], v2[2]])
+    return q2
+
+def quat_dist(q1, q2):
+    d = quat_norm(quat_ln(quat_product(quat_inverse(q1), q2)))
+    return d
+
 
 if __name__ == '__main__':
 

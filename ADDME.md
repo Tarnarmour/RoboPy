@@ -21,3 +21,5 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 15) Make general dynamic arm creator with linear density
 16) <s> Kinetic and Potential Energy calculation </s>
 17) Make real decision about gravity and external wrench convention and standardize
+18) quaternion utility; slerp, product, etc
+19) IK uses quaternions internally

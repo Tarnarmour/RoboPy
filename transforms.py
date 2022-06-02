@@ -128,7 +128,7 @@ def R2q(R):
     return np.array([0.5*sqrt(np.abs(R[0, 0] + R[1, 1] + R[2, 2] + 1)),
                      0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(np.abs(R[0, 0] - R[1, 1] - R[2, 2] + 1)),
                      0.5*np.sign(R[0, 2] - R[2, 0]) * sqrt(np.abs(R[1, 1] - R[2, 2] - R[0, 0] + 1)),
-                     0.5*np.sign(R[2, 1] - R[1, 2]) * sqrt(np.abs(R[2, 2] - R[0, 0] - R[1, 1] + 1))])
+                     0.5*np.sign(R[1, 0] - R[0, 1]) * sqrt(np.abs(R[2, 2] - R[0, 0] - R[1, 1] + 1))])
 
 def q2R(q):
     nu = q[0]
@@ -207,18 +207,33 @@ def A2x(A):
 def A2cart(A):
     return A[0:3, 3]
 
+def A2rot(A):
+    return A[0:3, 0:3]
+
 def A2pose(A, pose='q'):
-    def f(x):
-        return {
-            'rpy': A2rpy(A),
-            'planar': A2planar(A),
-            'axis': A2axis(A),
-            'q': A2q(A),
-            'quat': A2q(A),
-            'x': A2x(A),
-            'cart': A2cart(A)
-        }.get(pose, A2q(A))
-    return f(pose)
+    return {
+        'rpy': A2rpy(A),
+        'planar': A2planar(A),
+        'axis': A2axis(A),
+        'q': A2q(A),
+        'quat': A2q(A),
+        'quaternion': A2q(A),
+        'x': A2x(A),
+        'cart': A2cart(A),
+        'R': A2rot(A),
+        'rot': A2rot(A),
+        'A': A,
+        'se3': A
+    }.get(pose, A2q(A))
+
+def slerp(q0, q1, t):
+    q0inv = quat_inverse(q0)
+    q0invq1 = quat_product(q0inv, q1)
+    qt = quat_power(q0invq1, t)
+    q2 = quat_product(q0, qt)
+    # q2 = quat_product(q0, quat_power(quat_product(quat_inverse(q0), q1), t))
+    return q2
+
 
 def Erpy(x):
     spsi = sin(x[0])
