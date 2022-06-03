@@ -435,7 +435,7 @@ def vector_quintic_interpolation(t0, tf, x0, xf, v0=None, vf=None, a0=None, af=N
     else:
         return g
 
-def cubic_spline(ts, qs, deriv=False):
+def cubic_spline(ts, qs, qds=None, deriv=False):
 
     if len(qs.shape) > 1:
         m, n = qs.shape[0], qs.shape[1]
@@ -455,37 +455,41 @@ def cubic_spline(ts, qs, deriv=False):
         ddfuncs = [lambda t: 0.0]
 
     for i in range(1, m):
-        if i > 1:
-            if oneD:
-                ms = mf
-            else:
-                ms = np.copy(mf)
-        if i == m - 1:
-            if oneD:
-                mf = 0.0
-            else:
-                mf = np.zeros((n,))
-        elif not oneD:
-            for j in range(n):
-                if (qs[i-1, j] > qs[i, j] < qs[i+1, j]) or (qs[i-1, j] < qs[i, j] > qs[i+1, j]):
-                    mf[j] = 0.0
-                elif i == 1:
-                    mf[j] = (qs[i+1, j] - qs[i, j]) / (ts[i+1] - ts[i])
-                    # mf[j] = (qs[i + 2, j] - qs[i + 1, j]) / (ts[i + 2] - ts[i + 1])
+        if qds is None:
+            if i > 1:
+                if oneD:
+                    ms = mf
                 else:
-                    # mf[j] = (qs[i + 1, j] - qs[i-1, j]) / (ts[i + 1] - ts[i-1])
-                    mf[j] = (qs[i, j] - qs[i - 1, j]) / (ts[i] - ts[i - 1])
-                    # mf[j] = (qs[i + 1, j] - qs[i, j]) / (ts[i + 1] - ts[i])
+                    ms = np.copy(mf)
+            if i == m - 1:
+                if oneD:
+                    mf = 0.0
+                else:
+                    mf = np.zeros((n,))
+            elif not oneD:
+                for j in range(n):
+                    if (qs[i-1, j] > qs[i, j] < qs[i+1, j]) or (qs[i-1, j] < qs[i, j] > qs[i+1, j]):
+                        mf[j] = 0.0
+                    elif i == 1:
+                        mf[j] = (qs[i+1, j] - qs[i, j]) / (ts[i+1] - ts[i])
+                        # mf[j] = (qs[i + 2, j] - qs[i + 1, j]) / (ts[i + 2] - ts[i + 1])
+                    else:
+                        # mf[j] = (qs[i + 1, j] - qs[i-1, j]) / (ts[i + 1] - ts[i-1])
+                        mf[j] = (qs[i, j] - qs[i - 1, j]) / (ts[i] - ts[i - 1])
+                        # mf[j] = (qs[i + 1, j] - qs[i, j]) / (ts[i + 1] - ts[i])
 
-        else:
-            if (qs[i-1] > qs[i] < qs[i+1]) or (qs[i-1] < qs[i] > qs[i+1]):
-                mf = 0.0
-            elif i == 1:
-                mf = (qs[i+1] - qs[i]) / (ts[i+1] - ts[i])
             else:
-                # mf = (qs[i + 1] - qs[i-1]) / (ts[i + 1] - ts[i-1])
-                mf = (qs[i] - qs[i - 1]) / (ts[i] - ts[i - 1])
-                # mf = (qs[i + 1] - qs[i]) / (ts[i + 1] - ts[i])
+                if (qs[i-1] > qs[i] < qs[i+1]) or (qs[i-1] < qs[i] > qs[i+1]):
+                    mf = 0.0
+                elif i == 1:
+                    mf = (qs[i+1] - qs[i]) / (ts[i+1] - ts[i])
+                else:
+                    # mf = (qs[i + 1] - qs[i-1]) / (ts[i + 1] - ts[i-1])
+                    mf = (qs[i] - qs[i - 1]) / (ts[i] - ts[i - 1])
+                    # mf = (qs[i + 1] - qs[i]) / (ts[i + 1] - ts[i])
+        else:
+            ms = qds[i - 1]
+            mf = qds[i]
 
         if oneD:
             f, fd, fdd = cubic_interpolation(ts[i - 1], ts[i], qs[i - 1], qs[i], ms, mf, deriv=True)

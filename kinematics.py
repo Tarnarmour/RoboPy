@@ -114,7 +114,7 @@ class SerialArm:
     def __repr__(self):
         return(f"SerialArm(dh=" + repr(self.dh) + ", jt=" + repr(self.jt) + ", base=" + repr(self.base) + ", tip=" + repr(self.tip) + ", joint_limits=" + repr(self.qlim) + ")")
 
-    def fk(self, q, index=None, base=False, tip=False):
+    def fk(self, q, index=None, base=False, tip=False, rep=None):
 
         if not hasattr(q, '__getitem__'):
             q = [q]
@@ -161,7 +161,10 @@ class SerialArm:
         if tip and end_frame == self.n:
             A = A @ self.tip
 
-        return A
+        if rep is None:
+            return A
+        else:
+            return A2pose(A, rep)
 
     def jacob(self, q, index=None, base=False, tip=False):
 
@@ -261,6 +264,8 @@ class SerialArm:
 
         if q0 is None:
             q0 = np.zeros((self.n,), dtype=data_type)
+        else:
+            q0 = np.copy(q0)
 
         if rep == 'rpy':
             def get_pose(A):
@@ -350,7 +355,30 @@ class SerialArm:
 
         return output
 
-    # def ik_pinv(self, At, fk, jacob):
+    def ik2(self, target, q0=None, rep='q', **kwargs):
+        """
+        *** Improvements over IK ***
+        1) better call signature: include some smarter default options, better guesses based on target type (shouldn't
+        need to be a full 4x4 when not required) to save time
+        2) Internal use of quaternions to simplify structure (no "rep" input) and improve jacobian
+        3) Better line search
+        4) More method options (e.g. pinv, jt, fabrik, SLSPQ, etc.)
+        5) Optional hessian search
+        6) clean ouput with trajectory as part of output
+        7) Better system for handling failure; option to restart from other location, etc.
+
+        Breakdown of function call:
+
+        - parse target; if  4x4, then interpret as se3. if length 3, interpret as translation only; if length 7
+        interpret as translation and quaternion
+
+        - if needed pick default q0
+
+        - break into methods, passing kwargs into each method. Specific methods can be coded outside of the SerialArm
+        class in the kinematics module.
+
+        """
+        pass
 
 def shift_gamma(*args):
     gamma = np.eye(6)
@@ -376,6 +404,24 @@ class IKOutput:
         self.ef = ef
         self.nef = nef
 
+
     def __str__(self):
         return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
 
+
+def ik_pinv(arm, target, q0, **kwargs):
+    pass
+
+
+@dataclass
+class IkOutput2:
+    qf: np.ndarray = np.array([])
+    xf: np.ndarray = np.array([])
+    xt: np.ndarray = np.array([])
+    status: int = 10
+    message: str = "Not Initialized"
+    nit: int = 0
+    ef: np.ndarray = np.array([])
+    nef: float = 0.0
+    qs: np.ndarray = np.array([])
+    time: float = 0.0

@@ -175,20 +175,6 @@ class PlanarMPL:
         # plt.show()
 
 
-class VizMaster:
-    # The viz master will hold and coordinate all viz windows. Its purpose is to set up for the play function, where it
-    # will be important for multiple windows to be open (controller, animation, and maybe a data plotter?). The viz
-    # master coordinates these and transfers data between these windows when needed.
-    # Below the viz master will be the three window types: Scene, Sliders or Widgets, and Plotters.
-    # Scene windows will display transforms, arms, trace lines, and scatter points.
-    # Widget windows will have sliders, other buttons, maybe an interactive IK module?
-    # Plotter windows will be 2d windows for plotting data against time, etc.
-    def __init__(self):
-        self.scenes = []
-        self.widgets = []
-        self.plotters = []
-
-
 class VizScene:
     """The viz scene holds all the 3d objects to be plotted. This includes arms (which are GLMeshObjects), transforms
     (which are plots or quiver type things), scatter points, and lines."""
@@ -200,7 +186,10 @@ class VizScene:
         self.markers = []
         self.range = 5
 
-        self.app = pg.QtGui.QApplication([])
+        if QApplication.instance() is None:
+            self.app = pg.QtGui.QApplication([])
+        else:
+            self.app = QApplication.instance()
         self.window = gl.GLViewWidget()
         self.window.setWindowTitle('Robot Visualization 2: The Sequel')
         self.window.setGeometry(200, 100, 1200, 900)
@@ -365,10 +354,12 @@ class VizScene:
 
 class ArmPlayer:
     def __init__(self, arm):
-
-        self.app = pg.QtGui.QApplication([])
+        if QApplication.instance() is None:
+            self.app = pg.QtGui.QApplication([])
+        else:
+            self.app = QApplication.instance()
         self.window = QMainWindow()
-        self.window.setGeometry(200, 300, 800, 500)
+        self.window.setGeometry(200, 300, 1000, 700)
         self.window.setWindowTitle("Arm Play")
 
         self.main_layout = QHBoxLayout()
