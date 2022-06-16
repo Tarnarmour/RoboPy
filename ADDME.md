@@ -24,3 +24,4 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 19) IK uses quaternions internally
 20) Dual quaternions
 21) Random joint angle helper function, with list of joint limits. I'm tired of redoing this
+22) <s> Reachable distance estimate as a property of Serial Arm </s>

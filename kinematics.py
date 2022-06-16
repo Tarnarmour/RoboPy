@@ -102,6 +102,9 @@ class SerialArm:
             self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
 
         self.qlim = joint_limits
+        self.max_reach = 0.0
+        for dh in self.dh:
+            self.max_reach += norm(np.array([dh[0], dh[2]]))
 
     def __str__(self):
         dh_string = """DH PARAMS\n"""

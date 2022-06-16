@@ -1,8 +1,8 @@
 import numpy as np
-from PySide2.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton,
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton,
                                QSizePolicy, QLabel)
-from PySide2.QtCore import QSize
-from PySide2.QtCore import Qt
+from PyQt5.QtCore import QSize
+from PyQt5.QtCore import Qt
 import pyqtgraph.opengl as gl
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
