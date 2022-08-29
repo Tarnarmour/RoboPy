@@ -1,4 +1,6 @@
 import numpy as np
+from numpy import sqrt, sin, cos
+from numpy.linalg import norm
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QSlider, QPushButton,
                                QSizePolicy, QLabel)
 from PyQt5.QtCore import QSize
@@ -9,8 +11,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 from matplotlib.widgets import Slider
 
-from .transforms import *
-from .kinematics import SerialArm
+# from .transforms import *
+# from .kinematics import SerialArm
 
 from time import perf_counter, sleep
 
@@ -563,7 +565,15 @@ class LinkMeshObject:
                                 [-0.5 * w, 0.5 * w, 0.5 * h],
                                 [0.5 * w, 0.5 * w, 0.5 * h]])
 
-        self.joint_points = self.joint_points @ rotz(theta) @ rotx(alpha) + v2
+        Rz = np.array([[cos(theta), -sin(theta), 0],
+                       [sin(theta), cos(theta), 0],
+                       [0, 0, 1]])
+
+        Rx = np.array([[1, 0, 0],
+                       [0, cos(alpha), -sin(alpha)],
+                       [0, sin(alpha), cos(alpha)]])
+
+        self.joint_points = self.joint_points @ Rz @ Rx + v2
 
         if link_color is None:
             link_color = np.array([0, 0, 0.35, 1])
