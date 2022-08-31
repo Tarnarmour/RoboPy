@@ -121,6 +121,9 @@ def euler2R(th1, th2, th3, order='xyz'):
         R = rotz(th1) @ roty(th2) @ rotx(th3)
     elif order == 'zyz':
         R = rotz(th1) @ roty(th2) @ rotz(th3)
+    else:
+        print("Invalid Order!")
+        return
 
     return clean_rotation_matrix(R)
 
@@ -177,8 +180,8 @@ def transl(p):
     return se3(p=p)
 
 def inv(A):
-    m = T.shape[0]
-    n = T.shape[1]
+    m = A.shape[0]
+    n = A.shape[1]
     Ainv = np.zeros_like(A)
     if m == 3:
         R = A[0:2, 0:2].T

@@ -146,7 +146,7 @@ class PlanarMPL:
 
         def get_text_from_A(A):
             pos = np.around(A[0:2, 3], decimals=2)
-            theta = np.around(rot2theta(A[0:2, 0:2]), decimals=2)
+            theta = np.around(np.arctan2(A[1, 0], A[0, 0]), decimals=2)
 
             s = 'Pos: [' + str(pos[0]) + ', ' + str(pos[1]) + ']\n'
             s += 'Angle: [' + str(theta) + ']\n'
@@ -556,7 +556,7 @@ class LinkMeshObject:
             V = np.array([[0, -v[2], v[1]],
                           [v[2], 0, -v[0]],
                           [-v[1], v[0], 0]])
-            R = np.eye(3, dtype=data_type) + sin(ang) * V + (1 - cos(ang)) * V @ V
+            R = np.eye(3) + sin(ang) * V + (1 - cos(ang)) * V @ V
             # R = axis2R(ang, axis)
 
         self.link_points = self.link_points @ R.T
