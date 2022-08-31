@@ -553,7 +553,9 @@ class LinkMeshObject:
             axis = axis / np.linalg.norm(axis)
             ang = np.arccos(v1 @ v2 / (norm(v1) * norm(v2)))
             v = axis / norm(axis)
-            V = skew(v)
+            V = np.array([[0, -v[2], v[1]],
+                          [v[2], 0, -v[0]],
+                          [-v[1], v[0], 0]])
             R = np.eye(3, dtype=data_type) + sin(ang) * V + (1 - cos(ang)) * V @ V
             # R = axis2R(ang, axis)
 
