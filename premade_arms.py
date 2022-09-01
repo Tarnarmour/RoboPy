@@ -49,3 +49,19 @@ def SimpleDynArm(dh, linear_density=1.0, damping=0.1):
     link_inertia = []
     joint_damping = []
 
+def panda():
+    # d theta a alpha
+    dh = np.array([[0.333, 0, 0, -np.pi / 2], # 1-2
+                   [0, 0, 0, np.pi / 2], # 2-3
+                   [0.316, 0, 0.0825, np.pi / 2], # 3-4
+                   [0, 0, -0.0825, -np.pi / 2], # 4-5
+                   [0.384, 0, 0, np.pi / 2], # 5-6
+                   [0, 0, 0.088, np.pi / 2], # 6-7
+                   [0.107, 0, 0, 0]]) #7-F
+    dh[:, 0]
+    dh[:, 2]
+    tool = transl([0, 0, 0.107])
+
+    arm = SerialArm(dh=dh, tip=tool)
+    return arm
+

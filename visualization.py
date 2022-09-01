@@ -317,7 +317,8 @@ class VizScene:
         sleep(0.00001)
 
     def hold(self):
-        self.app.exec_()
+        while self.window.isVisible():
+            self.app.processEvents()
 
     def wander(self, index=None, q0=None, speed=1e-1, duration=np.inf, accel=5e-4):
         if index is None:
@@ -329,7 +330,7 @@ class VizScene:
         qs = []
         dqs = []
 
-        while t < tstart + duration:
+        while t < tstart + duration and self.window.isVisible():
             for i, ind in enumerate(index):
                 n = self.arms[ind].n
                 if flag:
