@@ -2,7 +2,7 @@
 2) Trajectory
 3) <s> Sliders </s> 
 4) <s> Forward Dynamics: RNE and EL </s>
-5) List of premade arms, like panda, baxter, stanford, HUMAN ARM, etc.
+5) <s> List of premade arms, like panda, baxter, stanford, HUMAN ARM, etc. </s>
 6) Wrap auto-differentiation around fk, jacob, and dynamics methods
 7) <s> Pull IK into its own module, it's just too messy currently, and give it a wrapper function that calls different internal methods, right now the parameters list for IK is just nuts. Maybe an opts function? like an IKopts dataclass that gets put in to clean up the API for IK? </s> 
    Pull methods into their own functions in kinematics
@@ -22,6 +22,7 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 17) Make real decision about gravity and external wrench convention and standardize
 18) <s> quaternion utility; slerp, product, etc </s>
 19) IK uses quaternions internally
-20) Dual quaternions
+20) **** Dual quaternions ****
 21) Random joint angle helper function, with list of joint limits. I'm tired of redoing this
 22) <s> Reachable distance estimate as a property of Serial Arm </s>
+23) Okay the reachable distance thing was great but it's not so awesome that you need two copies of it! Figure out where arm.reach and arm.max_reach are being used and consolidate, please!

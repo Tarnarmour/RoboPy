@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QV
 from PyQt5.QtCore import QSize
 from PyQt5.QtCore import Qt
 import pyqtgraph.opengl as gl
+from pyqtgraph.opengl.GLGraphicsItem import GLGraphicsItem
 import pyqtgraph as pg
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -230,10 +231,13 @@ class VizScene:
             return None
         self.app.processEvents()
 
-    def add_frame(self, A):
-        self.frames.append(FrameViz())
+    def add_frame(self, A, label=None):
+        self.frames.append(FrameViz(label=label))
         self.frames[-1].update(A)
         self.window.addItem(self.frames[-1].mesh_object)
+        if label is not None:
+            self.window.addItem(self.frames[-1].label)
+            self.frames[-1].label.setGLViewWidget(self.window)
 
         if 2 * norm(A[0:3, 3]) > self.range:
             self.range = 2 * norm(A[0:3, 3])
@@ -431,7 +435,6 @@ class ArmPlayer:
             self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
 
         self.arm.update(qs)
-
 
 
 class ArmMeshObject:
@@ -637,22 +640,30 @@ class LinkMeshObject:
 
 class FrameViz:
     def __init__(self, A=np.eye(4), scale=1, colors=[red, green, blue], label=None):
-        self.frame_object = FrameMeshObject(scale, colors, label)
+        self.frame_object = FrameMeshObject(scale, colors)
         self.mesh = self.frame_object.get_mesh(A[0:3, 0:3], A[0:3, 3])
         self.colors = self.frame_object.get_colors()
         self.mesh_object = gl.GLMeshItem(vertexes=self.mesh,
                                          vertexColors=self.colors,
                                          computeNormals=False,
                                          drawEdges=False)
+        if label is not None:
+            self.label = GLTextItem(A[0:3, 3], text=label)
+        else:
+            self.label = None
+
     def update(self, A):
         self.mesh = self.frame_object.get_mesh(A[0:3, 0:3], A[0:3, 3])
         self.colors = self.frame_object.get_colors()
         self.mesh_object.setMeshData(vertexes=self.mesh,
                                      vertexColors=self.colors)
+        if self.label is not None:
+            p = A[0:3, 3] + A[0:3, 0:3] @ np.array([0.35, 0, 0])
+            self.label.setData(pos=p)
 
 
 class FrameMeshObject:
-    def __init__(self, scale=1, colors=[red, green, blue], label=None):
+    def __init__(self, scale=1, colors=[red, green, blue]):
         a = 0.1 * scale
         b = 0.35 * scale
         self.points = np.array([[0, 0, 0],
@@ -731,3 +742,38 @@ class EEMeshObject:
     def get_colors(self):
         return self.colors
 
+
+class GLTextItem(GLGraphicsItem):
+    """
+    Class for plotting text on a GLWidget
+    """
+
+    def __init__(self, pos=None, text=None):
+        GLGraphicsItem.__init__(self)
+        self.setGLOptions('translucent')
+        self.text = text
+        self.pos = pos
+
+    def setGLViewWidget(self, GLViewWidget):
+        self.GLViewWidget = GLViewWidget
+
+    def setText(self, text):
+        self.text = text
+        self.update()
+
+    def setPos(self, pos):
+        self.pos = pos
+        self.update()
+
+    def setData(self, pos=None, text=None):
+        if pos is not None:
+            self.pos = pos
+
+        if text is not None:
+            self.text = text
+
+        self.update()
+
+    def paint(self):
+        self.GLViewWidget.qglColor(Qt.white)
+        self.GLViewWidget.renderText(self.pos[0], self.pos[1], self.pos[2], self.text)

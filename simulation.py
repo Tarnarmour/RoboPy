@@ -21,13 +21,11 @@ from .transforms import *
 from .utility import *
 from .premade_arms import PlanarDyn
 
-default_arm = PlanarDyn()
-
 
 class RobotSys:
     """RobotSys is a class representing a robot arm as a dynamical system"""
 
-    def __init__(self, arm=default_arm, dt=1e-3, step_method='rk4', dyn_method='rne'):
+    def __init__(self, arm=PlanarDyn(), dt=1e-3, step_method='rk4', dyn_method='rne'):
 
         self.n = arm.n
         self.arm = arm

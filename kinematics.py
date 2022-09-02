@@ -263,12 +263,12 @@ class SerialArm:
 
         return J
 
-    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf):
+    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf, try_hard=False):
 
         if q0 is None:
             q0 = np.zeros((self.n,), dtype=data_type)
         else:
-            q0 = np.copy(q0)
+            q0 = np.copy(q0)  # copy so that modifications to q0 internally don't change external code
 
         if rep == 'rpy':
             def get_pose(A):
@@ -351,8 +351,8 @@ class SerialArm:
         xf = get_pose(self.fk(q))
         output = IKOutput(q, xf, x_target, status, report, count, e, norm(e))
 
-        if not output.status:
-            # print(f"Trying from new starting point, {report}")
+        if not output.status and try_hard:
+            print(f"Trying from new starting point, {report}")
             q0 += (np.random.random_sample((self.n,)) * 2 * pi - pi) * 0.05
             output = self.ik(A_target, q0, method, rep, max_iter, tol, viz, min_delta, max_delta)
 
