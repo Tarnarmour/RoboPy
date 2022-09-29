@@ -207,14 +207,19 @@ class VizScene:
 
         self.app.processEvents()
 
-    def add_arm(self, arm, draw_frames=False, joint_colors=None):
+    def add_arm(self, arm, draw_frames=False, joint_colors=None, label=None, q=None):
         self.arms.append(ArmMeshObject(arm, draw_frames=draw_frames, joint_colors=joint_colors))
-        self.arms[-1].update()
+        self.arms[-1].update(q)
         self.window.addItem(self.arms[-1].mesh_object)
 
         if 2 * arm.reach > self.range:
             self.range = 2 * arm.reach
             self.window.setCameraPosition(distance=self.range)
+
+        if label is not None:
+            text = GLTextItem(pos=arm.base[0:3, 3], text=label)
+            self.window.addItem(text)
+            text.setGLViewWidget(self.window)
 
         self.app.processEvents()
 
@@ -258,16 +263,17 @@ class VizScene:
             return None
         self.app.processEvents()
 
-    def add_marker(self, pos, color=green, size=10):
+    def add_marker(self, pos, color=green, size=10, pxMode=True):
         if not isinstance(pos, (np.ndarray)):
             pos = np.array(pos)
 
-        self.markers.append(gl.GLScatterPlotItem(pos=pos, color=color, size=size))
+        self.markers.append(gl.GLScatterPlotItem(pos=pos, color=color, size=size, pxMode=pxMode))
         self.window.addItem(self.markers[-1])
 
-        if 2 * norm(pos) > self.range:
-            self.range = 2 * norm(pos)
-            self.window.setCameraPosition(distance=self.range)
+        # Maybe make this optional, or at least change the scale
+        # if 2 * norm(pos) > self.range:
+        #     self.range = 2 * norm(pos)
+        #     self.window.setCameraPosition(distance=self.range)
 
         self.app.processEvents()
 
@@ -303,7 +309,7 @@ class VizScene:
                 self.frames[0].update(As)
 
         if poss is not None:
-            if isinstance(poss, (list, tuple)):
+            if isinstance(poss, (list, tuple, np.ndarray)):
                 for i in range(len(self.markers)):
                     if not isinstance(poss[i], (np.ndarray)):
                         pos = np.array(poss[i])
