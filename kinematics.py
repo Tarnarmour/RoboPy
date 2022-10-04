@@ -17,7 +17,7 @@ eye = np.eye(4, dtype=np.float32)
 pi = np.pi
 
 
-class TForm:
+class DH2Func:
     def __init__(self, dh, jt):
 
         if jt == 'r':
@@ -92,7 +92,7 @@ class SerialArm:
                 print("WARNING! Joint Type list does not have the same size as dh param list!")
                 return None
         for i in range(self.n):
-            T = TForm(dh[i], self.jt[i])
+            T = DH2Func(dh[i], self.jt[i])
             self.transforms.append(T.f)
 
         self.base = base
@@ -101,10 +101,10 @@ class SerialArm:
         for i in range(self.n):
             self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
 
+        if joint_limits is None:
+            joint_limits = np.asarray([[-np.pi, np.pi] for i in range(self.n)])
+
         self.qlim = joint_limits
-        self.max_reach = 0.0
-        for dh in self.dh:
-            self.max_reach += norm(np.array([dh[0], dh[2]]))
 
     def __str__(self):
         dh_string = """DH PARAMS\n"""
@@ -118,6 +118,16 @@ class SerialArm:
         return(f"SerialArm(dh=" + repr(self.dh) + ", jt=" + repr(self.jt) + ", base=" + repr(self.base) + ", tip=" + repr(self.tip) + ", joint_limits=" + repr(self.qlim) + ")")
 
     def fk(self, q, index=None, base=False, tip=False, rep=None):
+
+        # If q is a 2D numpy array, assume each row is a set of q's and do this
+        if isinstance(q, np.ndarray):
+            if len(q.shape) == 2:
+                p = q.shape[0]
+                output_shape = self.fk(q[0], index, base, tip, rep).shape
+                output = np.zeros(((p,) + output_shape))
+                for i, q_in in enumerate(q):
+                    output[i] = self.fk(q_in, index, base, tip, rep)
+                return output
 
         if not hasattr(q, '__getitem__'):
             q = [q]

@@ -25,6 +25,6 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 20) **** Dual quaternions ****
 21) Random joint angle helper function, with list of joint limits. I'm tired of redoing this. BTW this should maybe be a method attached to Serial arm, so that a specific arm can generate sample points for itself
 22) <s> Reachable distance estimate as a property of Serial Arm </s>
-23) Okay the reachable distance thing was great but it's not so awesome that you need two copies of it! Figure out where arm.reach and arm.max_reach are being used and consolidate, please!
+23) <s> Okay the reachable distance thing was great but it's not so awesome that you need two copies of it! Figure out where arm.reach and arm.max_reach are being used and consolidate, please! </s>
 24) Modified DH parameter conversion and arm generation
 25) 
