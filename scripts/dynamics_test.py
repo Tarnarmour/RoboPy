@@ -1,7 +1,6 @@
 import RoboPy as rp
 import numpy as np
 from numpy import pi, eye
-import sympy as sp
 from time import perf_counter
 
 dh = [[0, 0, 1, 0], [0, 0, 1, 0]]
@@ -51,21 +50,3 @@ for i in range(10):
 
 print(perf_counter() - tick)
 
-
-
-
-# import TimingAnalysis as TA
-# timer = TA.TimingAnalysis()
-# timer.time_in("MAIN")
-# for i in range(1000):
-#     timer.time_in("rne")
-#     tau_rne, wrench = arm.rne(q, qd, qdd, g=g)
-#     timer.time_out("rne")
-#     timer.time_in("el")
-#     tau_el = arm.EL(q, qd, qdd, g=g)
-#     timer.time_out("el")
-#
-# print(f"tau from RNE: \n{tau_rne}\n")
-# print(f"tau from EL: \n{tau_el}\n")
-#
-# timer.report_all()

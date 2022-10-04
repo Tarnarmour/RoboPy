@@ -27,7 +27,7 @@ Wext = np.array([0, 0, 0, 0, 0, 0])
 dt = 0.05
 tspan = [0, 15]
 
-sys = rp.RobotSys(arm, dt, step_method='odeint', dyn_method='EL')
+sys = rp.RobotSys(arm, dt, step_method='rk4', dyn_method='EL')
 ts, qs, qds = sys.simulate(tspan, q0, qd0, tau, viz=viz, gravity=g, Wext=Wext, real_time=False)
 
 fig, ax = plt.subplots()

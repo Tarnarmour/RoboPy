@@ -27,4 +27,6 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 22) <s> Reachable distance estimate as a property of Serial Arm </s>
 23) <s> Okay the reachable distance thing was great but it's not so awesome that you need two copies of it! Figure out where arm.reach and arm.max_reach are being used and consolidate, please! </s>
 24) Modified DH parameter conversion and arm generation
-25) 
+25) Github landing page with tutorial
+26) Finish tutorial script and keep up to date
+27) __str__ and __repr__ functions for SerialArmDyn class need additional details
