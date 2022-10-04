@@ -13,7 +13,7 @@ multiple object scenes.
 9) <s> Viscous damping on dynamics </s>
 10) Improve simulation setup, should have an integrated method to take care of weird
 damping stuff going on. Or maybe that needs to be in forward dynamics?
-11) Joint Limits, with integrated FK, IK, and simulation stuff
+11) <s> Joint Limits, with integrated FK, <!s> IK,  and simulation stuff
 12) Control module, enabling control functions or some common control methods to be passed in
 13) Simulation module should include linearization and step responses
 14) Make sliders on play function taller when possible.
