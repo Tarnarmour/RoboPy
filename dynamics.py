@@ -261,7 +261,7 @@ class SerialArmDyn(SerialArm):
 
             M = M + m * Jv.T @ Jv + Jw.T @ R @ In @ R.T @ Jw
             C = C + m * Jv.T @ Jvd + Jw.T @ R @ In @ R.T @ Jwd + Jw.T @ Rd @ In @ R.T @ Jw
-            G = G - J.T @ np.hstack((g, np.zeros(3, )))
+            G = G - J.T @ np.hstack((g, np.zeros(3, ))) * m
 
         return M, C, G
 

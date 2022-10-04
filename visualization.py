@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from numpy import sqrt, sin, cos
 from numpy.linalg import norm
@@ -326,9 +328,16 @@ class VizScene:
         self.app.processEvents()
         sleep(0.00001)
 
-    def hold(self):
-        while self.window.isVisible():
-            self.app.processEvents()
+    def hold(self, t=None):
+        if t is None:
+            while self.window.isVisible():
+                self.app.processEvents()
+        else:
+            time_start = time.perf_counter()
+            time_end = time_start + t
+            while time.perf_counter() < time_end:
+                self.app.processEvents()
+
 
     def wander(self, index=None, q0=None, speed=1e-1, duration=np.inf, accel=5e-4):
         if index is None:
@@ -363,6 +372,11 @@ class VizScene:
                 flag = False
             t = perf_counter()
             self.app.processEvents()
+
+    def quit(self):
+        self.window.clear()
+        self.window.close()
+        self.app.exit()
 
 
 class ArmPlayer:
