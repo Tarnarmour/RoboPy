@@ -36,7 +36,8 @@ if __name__ == '__main__':
 
     dh = [[0, 0, 1, 0], [0, 0, 1, 0]] # Planar arm with a = 1 for two links
     jt = ['r', 'r'] # jt is the joint type, and can be 'r' for rotational or 'p' for prismatic, and defaults to 'r'
-    arm = rp.SerialArm(dh, jt=jt)
+    joint_limits = [[-np.pi, np.pi]] * 2  # joint limits are given as (low, high) pairs for each link
+    arm = rp.SerialArm(dh, jt=jt, joint_limits=joint_limits)
     print(arm)
 
     # We can now do things like forward kinematics or jacobians

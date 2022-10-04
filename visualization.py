@@ -394,20 +394,30 @@ class ArmPlayer:
         grid = gl.GLGridItem()
         grid.scale(1, 1, 1)
         w1.addItem(grid)
-        self.arm = ArmMeshObject(arm)
+        self.arm = arm
+        self.armObject = ArmMeshObject(arm)
         self.n = arm.n
-        w1.addItem(self.arm.mesh_object)
+        w1.addItem(self.armObject.mesh_object)
         w1.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         w2 = QVBoxLayout()
         self.slider_list = []
         self.slider_label_list = []
         for i in range(arm.n):
             t = QLabel()
-            t.setText(f"Joint {i + 1}: 0 degrees")
+            if arm.jt[i] == 'r':
+                t.setText(f"Joint {i + 1}: 0 degrees")
+            else:
+                t.setText(f"Joint {i + 1}: 0")
             t.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             s = QSlider(Qt.Horizontal)
-            s.setMinimum(-360)
-            s.setMaximum(360)
+            if not arm.qlim[i, 0] == -np.inf:
+                s.setMinimum(arm.qlim[i, 0] * 180 / np.pi * 2)
+            else:
+                s.setMinimum(-360)
+            if not arm.qlim[i, 1] == np.inf:
+                s.setMaximum(arm.qlim[i, 1] * 180 / np.pi * 2)
+            else:
+                s.setMaximum(360)
             s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             s.sliderMoved.connect(self.update_sliders)
             self.slider_list.append(s)
@@ -440,9 +450,12 @@ class ArmPlayer:
         for i, s in enumerate(self.slider_list):
             q = s.value()
             qs[i] = q / 2 * np.pi / 180
-            self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
+            if self.arm.jt[i] == 'r':
+                self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
+            else:
+                self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2}")
 
-        self.arm.update(qs)
+        self.armObject.update(qs)
 
     def button_pressed(self):
 
@@ -452,9 +465,12 @@ class ArmPlayer:
             s, q1 = z[0], z[1]
             q = int(180 / np.pi * 2 * q1)
             s.setValue(q)
-            self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
+            if self.arm.jt[i] == 'r':
+                self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2} degrees")
+            else:
+                self.slider_label_list[i].setText(f"Joint {i + 1}: {q / 2}")
 
-        self.arm.update(qs)
+        self.armObject.update(qs)
 
 
 class ArmMeshObject:

@@ -1,7 +1,6 @@
 import RoboPy as rp
 import numpy as np
 from numpy import pi, eye
-import sympy as sp
 from time import perf_counter
 
 dh = [[0, 0, 1, 0], [0, 0, 1, 0]]

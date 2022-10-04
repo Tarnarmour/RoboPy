@@ -50,10 +50,6 @@ for i in range(3):
     viz.remove_frame()
 
 
-print(count_q)
-print(count_rpy)
-
-
 viz.wander(duration=10.0, q0=[q])
 
 

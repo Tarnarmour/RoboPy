@@ -102,9 +102,17 @@ class SerialArm:
             self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
 
         if joint_limits is None:
-            joint_limits = np.asarray([[-np.pi, np.pi] for i in range(self.n)])
+            joint_limits = np.asarray([[-np.inf, np.inf] for i in range(self.n)])
+        else:
+            if not len(joint_limits) == self.n:
+                print("WARNING! Joint limits list does not have the same size as dh param list!")
+                return None
+            if not isinstance(joint_limits, np.ndarray):
+                joint_limits = np.asarray(joint_limits, dtype=data_type)
 
         self.qlim = joint_limits
+
+        self.qlim_warning = True
 
     def __str__(self):
         dh_string = """DH PARAMS\n"""
@@ -117,24 +125,38 @@ class SerialArm:
     def __repr__(self):
         return(f"SerialArm(dh=" + repr(self.dh) + ", jt=" + repr(self.jt) + ", base=" + repr(self.base) + ", tip=" + repr(self.tip) + ", joint_limits=" + repr(self.qlim) + ")")
 
+    def set_qlim_warnings(self, warnings_on):
+        self.qlim_warning = bool(warnings_on)
+
+    def clipq(self, q):
+        q_out = np.clip(q, self.qlim[:, 0], self.qlim[:, 1])
+        changed = not (q == q_out).all()
+        return q_out, changed
+
     def fk(self, q, index=None, base=False, tip=False, rep=None):
 
-        # If q is a 2D numpy array, assume each row is a set of q's and do this
-        if isinstance(q, np.ndarray):
-            if len(q.shape) == 2:
-                p = q.shape[0]
-                output_shape = self.fk(q[0], index, base, tip, rep).shape
-                output = np.zeros(((p,) + output_shape))
-                for i, q_in in enumerate(q):
-                    output[i] = self.fk(q_in, index, base, tip, rep)
-                return output
+        # handle input: we want to accept any iterable or scalar and turn it into an np.array
+        if not isinstance(q, np.ndarray):
+            if hasattr(q, '__getitem__'):
+                q = np.asarray(q, dtype=data_type)
+            else:
+                q = np.array([q], dtype=data_type)
 
-        if not hasattr(q, '__getitem__'):
-            q = [q]
+        # If q is a 2D numpy array, assume each row is a set of q's and do this
+        if len(q.shape) == 2:
+            output_shape = self.fk(q[0], index, base, tip, rep).shape
+            output = np.zeros(((q.shape[0],) + output_shape))
+            for i, q_in in enumerate(q):
+                output[i] = self.fk(q_in, index, base, tip, rep)
+            return output
 
         if len(q) != self.n:
             print("WARNING: q (input angle) not the same size as number of links!")
             return None
+
+        q, clipped = self.clipq(q)
+        if clipped and self.qlim_warning:
+            print("WARNING! Joint input to fk out of joint limits!")
 
         if isinstance(index, (list, tuple)):
             start_frame = index[0]
@@ -181,13 +203,36 @@ class SerialArm:
 
     def jacob(self, q, index=None, base=False, tip=False):
 
+        # handle input: we want to accept any iterable or scalar and turn it into an np.array
+        if not isinstance(q, np.ndarray):
+            if hasattr(q, '__getitem__'):
+                q = np.asarray(q, dtype=data_type)
+            else:
+                q = np.array([q], dtype=data_type)
+
+        # If q is a 2D numpy array, assume each row is a set of q's and do this
+        if len(q.shape) == 2:
+            output_shape = self.jacob(q[0], index, base, tip).shape
+            output = np.zeros(((q.shape[0],) + output_shape))
+            for i, q_in in enumerate(q):
+                output[i] = self.jacob(q_in, index, base, tip)
+            return output
+
+        if len(q) != self.n:
+            print("WARNING: q (input angle) not the same size as number of links!")
+            return None
+
+        q, clipped = self.clipq(q)
+        if clipped and self.qlim_warning:
+            print("WARNING! Joint input to jacob out of joint limits!")
+
         if index is None:
             index = self.n
         elif index > self.n:
             print("WARNING: Index greater than number of joints!")
             print(f"Index: {index}")
 
-        J = np.zeros((6, self.n), dtype=np.float32)
+        J = np.zeros((6, self.n), dtype=data_type)
         Te = self.fk(q, index, base=base, tip=tip)
         pe = Te[0:3, 3]
 
@@ -416,7 +461,6 @@ class IKOutput:
         self.nit = nit
         self.ef = ef
         self.nef = nef
-
 
     def __str__(self):
         return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
