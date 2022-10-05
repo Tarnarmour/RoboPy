@@ -368,6 +368,7 @@ class SerialArm:
 
         e = x0 - x_target
         q = q0
+        qs = [q]
         count = 0
 
         status = True
@@ -385,15 +386,19 @@ class SerialArm:
                     qd = qd * 0.5
 
             q = q + qd
+
             for i in range(self.n):
                 if self.jt[i] == 'r':
                     q[i] = wrap_angle(q[i])
+
             x = get_pose(self.fk(q))
 
             if viz is not None:
                 viz.update(q)
 
             e = x - x_target
+
+            qs.append(q)
 
             if count > max_iter:
                 status = False
@@ -404,7 +409,8 @@ class SerialArm:
                 report = 'Terminated because change in q below minimum epsilon'
                 break
         xf = get_pose(self.fk(q))
-        output = IKOutput(q, xf, x_target, status, report, count, e, norm(e))
+        qs = np.asarray(qs)
+        output = IKOutput(q, xf, x_target, status, report, count, e, norm(e), qs)
 
         if not output.status and try_hard:
             print(f"Trying from new starting point, {report}")
@@ -452,7 +458,7 @@ def shift_gamma(*args):
 
 # change to dataclass
 class IKOutput:
-    def __init__(self, qf, xf, xt, status, report, nit, ef, nef):
+    def __init__(self, qf, xf, xt, status, report, nit, ef, nef, qs):
         self.qf = qf
         self.xf = xf
         self.xt = xt
@@ -461,6 +467,7 @@ class IKOutput:
         self.nit = nit
         self.ef = ef
         self.nef = nef
+        self.qs = qs
 
     def __str__(self):
         return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"

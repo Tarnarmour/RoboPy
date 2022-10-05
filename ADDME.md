@@ -30,3 +30,5 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 25) Github landing page with tutorial
 26) Finish tutorial script and keep up to date
 27) __str__ and __repr__ functions for SerialArmDyn class need additional details
+28) ArmPlayer: It would be nice to be able to add other static objects to the scene, like markers, lines, etc. Likewise it would be good to add a callback function that executes each step given the joint angles (so we can add things like moving vectors, etc)
+29) 
