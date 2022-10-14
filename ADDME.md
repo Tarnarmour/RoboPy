@@ -13,7 +13,7 @@ multiple object scenes.
 9) <s> Viscous damping on dynamics </s>
 10) Improve simulation setup, should have an integrated method to take care of weird
 damping stuff going on. Or maybe that needs to be in forward dynamics?
-11) <s> Joint Limits, with integrated FK, <!s> IK,  and simulation stuff
+11) <s> Joint Limits, with integrated FK, </s> IK,  and simulation stuff
 12) Control module, enabling control functions or some common control methods to be passed in
 13) Simulation module should include linearization and step responses
 14) Make sliders on play function taller when possible.
@@ -31,4 +31,5 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 26) Finish tutorial script and keep up to date
 27) __str__ and __repr__ functions for SerialArmDyn class need additional details
 28) ArmPlayer: It would be nice to be able to add other static objects to the scene, like markers, lines, etc. Likewise it would be good to add a callback function that executes each step given the joint angles (so we can add things like moving vectors, etc)
-29) 
+29) Functionality for saving images from VizScene. First, a function that holds an app.processEvents() loop until user terminal input so that I can set up the image how I want. Then, a function that takes the current GLViewWindow, saves to an image, and puts it somewhere. It would be really cool if you could do this with GIF's as well, execute for a set time and save as a video or GIF. See https://groups.google.com/g/pyqtgraph/c/dKT1Z3nIeow/m/OErAgRPAbB8J
+30) 

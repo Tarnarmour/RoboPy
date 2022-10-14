@@ -12,6 +12,7 @@ https://github.com/Tarnarmour/RoboPy.git
 from .utility import *
 from .transforms import *
 from dataclasses import dataclass
+import scipy.optimize as optimize
 
 eye = np.eye(4, dtype=np.float32)
 pi = np.pi
@@ -318,7 +319,7 @@ class SerialArm:
 
         return J
 
-    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf, try_hard=False):
+    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf, try_hard=False, kd=0.15):
 
         if q0 is None:
             q0 = np.zeros((self.n,), dtype=data_type)
@@ -353,11 +354,17 @@ class SerialArm:
                 Jdag = np.linalg.pinv(J)
                 qd = -Jdag @ e
                 return qd
-
         elif method == 'jt':
             def get_qd(q, e):
                 J = self.jacoba(q, rep=rep)
-                qd = -J.T @ e * 0.15
+                qd = -J.T @ e * kd
+                return qd
+        elif method == 'damped':
+            def get_qd(q, e):
+                J = self.jacoba(q, rep=rep)
+                I = np.eye(J.shape[0])
+                Jdag = J.T @ np.linalg.inv(J @ J.T + kd * I)
+                qd = -Jdag @ e
                 return qd
         else:
             print(f"Warning: {method} is not a valid IK method!")
@@ -382,6 +389,7 @@ class SerialArm:
             else:
                 if norm(qd) > max_delta:
                     qd = qd / norm(qd) * max_delta
+                # Do a simple line search to make sure we are still moving towards the goal
                 while norm(get_pose(self.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
                     qd = qd * 0.5
 

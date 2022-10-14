@@ -145,10 +145,16 @@ def q2R(q):
 
 def R2axis(R):
     ang = np.arccos(0.5 * (R[0, 0] + R[1, 1] + R[2, 2] - 1))
-    return np.array([ang,
-                     (R[2, 1] - R[1, 2]) / (2 * sin(ang)),
-                     (R[2, 0] - R[2, 0]) / (2 * sin(ang)),
-                     (R[1, 0] - R[0, 1]) / (2 * sin(ang))])
+    if np.isclose(sin(ang), 0.0):
+        return np.array([0,
+                         1,
+                         0,
+                         0])
+    else:
+        return np.array([ang,
+                         (R[2, 1] - R[1, 2]) / (2 * sin(ang)),
+                         (R[2, 0] - R[2, 0]) / (2 * sin(ang)),
+                         (R[1, 0] - R[0, 1]) / (2 * sin(ang))])
 
 def axis2R(ang, v):
     v = v / norm(v)
