@@ -14,9 +14,6 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 from matplotlib.widgets import Slider
 
-# from .transforms import *
-# from .kinematics import SerialArm
-
 from time import perf_counter, sleep
 
 red = np.array([0.7, 0, 0, 1])
