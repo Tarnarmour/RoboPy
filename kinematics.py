@@ -319,7 +319,7 @@ class SerialArm:
 
         return J
 
-    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf, try_hard=False, kd=0.15):
+    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf, try_hard=False, kd=0.15, base=True, tip=True, nullq=None):
 
         if q0 is None:
             q0 = np.zeros((self.n,), dtype=data_type)
@@ -371,7 +371,7 @@ class SerialArm:
             return None
 
         x_target = get_pose(A_target)
-        x0 = get_pose(self.fk(q0))
+        x0 = get_pose(self.fk(q0, base=base, tip=tip))
 
         e = x0 - x_target
         q = q0
@@ -384,14 +384,22 @@ class SerialArm:
         while norm(e) > tol:
             count += 1
             qd = get_qd(q, e)
+
             if norm(qd) < 1e-16:  # get out of singularities
                 qd += np.random.random_sample((self.n,)) * 0.002 - 0.001
             else:
                 if norm(qd) > max_delta:
                     qd = qd / norm(qd) * max_delta
                 # Do a simple line search to make sure we are still moving towards the goal
-                while norm(get_pose(self.fk(q + qd)) - x_target) > norm(e) and norm(qd) > 1e-6:
+                while norm(get_pose(self.fk(q + qd, base=base, tip=tip)) - x_target) > norm(e) and norm(qd) > 1e-6:
                     qd = qd * 0.5
+
+            if nullq is not None:
+                qd_desired = nullq(q, qd)
+                J = self.jacoba(q, rep=rep)
+                qdnull = (np.eye(self.n) - np.linalg.pinv(J) @ J) @ qd_desired
+                qdstar = qd + qdnull
+                qd = qdstar / np.linalg.norm(qdstar) * np.linalg.norm(qd)
 
             q = q + qd
 
@@ -399,7 +407,7 @@ class SerialArm:
                 if self.jt[i] == 'r':
                     q[i] = wrap_angle(q[i])
 
-            x = get_pose(self.fk(q))
+            x = get_pose(self.fk(q, base=base, tip=tip))
 
             if viz is not None:
                 viz.update(q)
@@ -416,7 +424,7 @@ class SerialArm:
                 status = False
                 report = 'Terminated because change in q below minimum epsilon'
                 break
-        xf = get_pose(self.fk(q))
+        xf = get_pose(self.fk(q, base=base, tip=tip))
         qs = np.asarray(qs)
         output = IKOutput(q, xf, x_target, status, report, count, e, norm(e), qs)
 
