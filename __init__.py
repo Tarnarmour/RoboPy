@@ -5,3 +5,4 @@ from .dynamics import *
 from .visualization import *
 from .premade_arms import *
 from .simulation import *
+from .VizSceneSource import *

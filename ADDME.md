@@ -32,4 +32,5 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 27) __str__ and __repr__ functions for SerialArmDyn class need additional details
 28) ArmPlayer: It would be nice to be able to add other static objects to the scene, like markers, lines, etc. Likewise it would be good to add a callback function that executes each step given the joint angles (so we can add things like moving vectors, etc)
 29) Functionality for saving images from VizScene. First, a function that holds an app.processEvents() loop until user terminal input so that I can set up the image how I want. Then, a function that takes the current GLViewWindow, saves to an image, and puts it somewhere. It would be really cool if you could do this with GIF's as well, execute for a set time and save as a video or GIF. See https://groups.google.com/g/pyqtgraph/c/dKT1Z3nIeow/m/OErAgRPAbB8J
-30) 
+30) Rigid body kinematics, given q, qd, qdd, a, omega, and alpha return v, a, omega, and alpha for each frame
+31) Null space option on IK function
