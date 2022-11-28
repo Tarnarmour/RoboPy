@@ -210,8 +210,9 @@ class SerialArmDyn(SerialArm):
             In = self.link_inertia[i]
             C = C + m * Jv.T @ Jvd + Jw.T @ R @ In @ R.T @ Jwd + Jw.T @ Rd @ In @ R.T @ Jw
 
-            Ind = R @ In @ Rd.T + Rd @ In @ R.T
-            Mdot = Mdot + m * (Jv.T @ Jvd + Jvd.T @ Jv) + Jw.T @ (In @ Jwd + Ind @ Jw) + Jwd.T @ In @ Jw
+            if get_mdot:
+                Ind = R @ In @ Rd.T + Rd @ In @ R.T
+                Mdot = Mdot + m * (Jv.T @ Jvd + Jvd.T @ Jv) + Jw.T @ (In @ Jwd + Ind @ Jw) + Jwd.T @ In @ Jw
 
         if get_mdot:
             output = (C, Mdot)
@@ -225,7 +226,7 @@ class SerialArmDyn(SerialArm):
         for i in range(self.n):
             ri = self.fk(q, i+1)[0:3, 0:3] @ self.r_com[i]
             J = shift_gamma(ri) @ self.jacob(q, i+1)
-            G = G - J.T @ np.hstack((g, np.zeros((3,))))
+            G = G - J[0:3, :].T @ g * self.mass[i]
 
         return G
 
@@ -261,7 +262,7 @@ class SerialArmDyn(SerialArm):
 
             M = M + m * Jv.T @ Jv + Jw.T @ R @ In @ R.T @ Jw
             C = C + m * Jv.T @ Jvd + Jw.T @ R @ In @ R.T @ Jwd + Jw.T @ Rd @ In @ R.T @ Jw
-            G = G - J.T @ np.hstack((g, np.zeros(3, ))) * m
+            G = G - J[0:3, :].T @ g * m
 
         return M, C, G
 

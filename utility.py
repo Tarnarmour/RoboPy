@@ -620,8 +620,8 @@ if __name__ == '__main__':
     q_knot = np.array([[0, 1, 2, 0, -2, -1]]).T
 
     t_knot = [0, 1, 2, 3, 4, 5]
-    # f, fd, fdd = cubic_spline(t_knot, q_knot, deriv=True)
-    f, fd, fdd = quintic_spline(t_knot, q_knot, deriv=True, cost='minjerk')
+    f, fd, fdd = cubic_spline(t_knot, q_knot, deriv=True)
+    # f, fd, fdd = quintic_spline(t_knot, q_knot, deriv=True, cost='minjerk')
 
     ts = np.linspace(t_knot[0], t_knot[-1], 1000)
     qs = np.asarray([f(t) for t in ts])

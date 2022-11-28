@@ -2,23 +2,26 @@ import numpy as np
 from numpy import sin, cos, sqrt, pi
 from numpy.linalg import norm
 from RoboPy import *
+from scipy import optimize
 
-dh = [[0, 0, 1, 0], [0, 0, 1, 0]]
+dh = [[0, 0, 1, 0], [0, 0, 1, 0], [0, 0, 0.5, 0], [0, 0, 0.25, 0]]
 arm = SerialArm(dh)
-q = [-1, 2]
-qp = [-1, 2.1]
+arm.set_qlim_warnings(False)
+q = np.array([np.pi / 2, np.pi / 4, 0, -np.pi / 3])
+x = arm.fk(q)[0:2, 3]
 
-J = arm.jacob(q)
-Jq = arm.jacoba(q, rep='q')
+J = arm.jacob(q)[0:2]
+H = arm.hessian(q)[0:2]
+Jdag = np.linalg.pinv(J)
 
-A1 = arm.fk(q)
-q1 = arm.fk(q, rep='q')
+print('Jacobian:\n', J)
+print('Hessian:')
+print(H)
 
-A2 = arm.fk(qp)
-q2 = arm.fk(qp, rep='q')
+dq = np.array([0.5, 0.5, 0.5, 0.5]) * 0.5
 
-print(J)
-print(A2 - A1)
+print("error comparison")
+print(x + J @ dq, np.linalg.norm(x + J @ dq - arm.fk(q + dq)[0:2, 3]))
+print(x + J @ dq + 0.5 * dq @ H @ dq, np.linalg.norm(x + J @ dq + 0.5 * dq @ H @ dq - arm.fk(q + dq)[0:2, 3]))
+print(arm.fk(q + dq)[0:2, 3])
 
-print(Jq)
-print(q2 - q1)

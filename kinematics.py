@@ -90,8 +90,7 @@ class SerialArm:
         else:
             self.jt = jt
             if len(self.jt) != self.n:
-                print("WARNING! Joint Type list does not have the same size as dh param list!")
-                return None
+                raise ValueError("WARNING! Joint Type list does not have the same size as dh param list!")
         for i in range(self.n):
             T = DH2Func(dh[i], self.jt[i])
             self.transforms.append(T.f)
@@ -101,13 +100,13 @@ class SerialArm:
         self.reach = 0
         for i in range(self.n):
             self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
+        self.reach = self.reach * 1.1
 
         if joint_limits is None:
             joint_limits = np.asarray([[-np.inf, np.inf] for i in range(self.n)])
         else:
             if not len(joint_limits) == self.n:
-                print("WARNING! Joint limits list does not have the same size as dh param list!")
-                return None
+                raise ValueError("WARNING! Joint limits list does not have the same size as dh param list!")
             if not isinstance(joint_limits, np.ndarray):
                 joint_limits = np.asarray(joint_limits, dtype=data_type)
 
@@ -152,12 +151,12 @@ class SerialArm:
             return output
 
         if len(q) != self.n:
-            print("WARNING: q (input angle) not the same size as number of links!")
+            raise ValueError("WARNING: q (input angle) not the same size as number of links!")
             return None
 
         q, clipped = self.clipq(q)
         if clipped and self.qlim_warning:
-            print("WARNING! Joint input to fk out of joint limits!")
+            raise ValueError("WARNING! Joint input to fk out of joint limits!")
 
         if isinstance(index, (list, tuple)):
             start_frame = index[0]
@@ -168,21 +167,21 @@ class SerialArm:
         else:
             start_frame = 0
             if index < 0:
-                print("WARNING: Index less than 0!")
+                raise ValueError("WARNING: Index less than 0!")
                 print(f"Index: {index}")
                 return None
             end_frame = index
 
         if end_frame > self.n:
-            print("WARNING: Ending index greater than number of joints!")
+            raise ValueError("WARNING: Ending index greater than number of joints!")
             print(f"Starting frame: {start_frame}  Ending frame: {end_frame}")
             return None
         if start_frame < 0:
-            print("WARNING: Starting index less than 0!")
+            raise ValueError("WARNING: Starting index less than 0!")
             print(f"Starting frame: {start_frame}  Ending frame: {end_frame}")
             return None
         if start_frame > end_frame:
-            print("WARNING: starting frame must be less than ending frame!")
+            raise ValueError("WARNING: starting frame must be less than ending frame!")
             print(f"Starting frame: {start_frame}  Ending frame: {end_frame}")
             return None
 
@@ -220,17 +219,17 @@ class SerialArm:
             return output
 
         if len(q) != self.n:
-            print("WARNING: q (input angle) not the same size as number of links!")
+            raise ValueError("WARNING: q (input angle) not the same size as number of links!")
             return None
 
         q, clipped = self.clipq(q)
         if clipped and self.qlim_warning:
-            print("WARNING! Joint input to jacob out of joint limits!")
+            raise ValueError("WARNING! Joint input to jacob out of joint limits!")
 
         if index is None:
             index = self.n
         elif index > self.n:
-            print("WARNING: Index greater than number of joints!")
+            raise ValueError("WARNING: Index greater than number of joints!")
             print(f"Index: {index}")
 
         J = np.zeros((6, self.n), dtype=data_type)
@@ -257,7 +256,7 @@ class SerialArm:
         if index is None:
             index = self.n
         elif index > self.n:
-            print("WARNING: Index greater than number of joints!")
+            raise ValueError("WARNING: Index greater than number of joints!")
             print(f"Index: {index}")
 
         Jdot = np.zeros((6, self.n), dtype=np.float32)
@@ -280,30 +279,30 @@ class SerialArm:
 
         return Jdot
 
-    def jacoba(self, q, rep='rpy', index=None, eps=1e-4):
+    def jacoba(self, q, rep='rpy', index=None, base=False, tip=False, eps=1e-6):
 
         if rep == 'rpy':
             def get_pose(q):
-                return A2rpy(self.fk(q, index))
+                return A2rpy(self.fk(q, index, base=base, tip=tip))
         elif rep == 'planar':
             def get_pose(q):
-                return A2planar(self.fk(q, index))
+                return A2planar(self.fk(q, index, base=base, tip=tip))
         elif rep == 'cart':
             def get_pose(q):
-                return self.fk(q, index)[0:3, 3]
+                return self.fk(q, index, base=base, tip=tip)[0:3, 3]
         elif rep == 'axis':
             def get_pose(q):
-                return A2axis(self.fk(q, index))
+                return A2axis(self.fk(q, index, base=base, tip=tip))
         elif rep == 'q' or rep == 'quaternion' or rep == 'quat':
-            return padE(invEquat(A2q(self.fk(q, index))[3:7])) @ self.jacob(q, index)
+            return padE(invEquat(A2q(self.fk(q, index, base=base, tip=tip))[3:7])) @ self.jacob(q, index, base=base, tip=tip)
             def get_pose(q):
-                return A2q(self.fk(q, index))
+                return A2q(self.fk(q, index, base=base, tip=tip))
         elif rep == 'x':
             def get_pose(q):
-                return A2x(self.fk(q, index))
+                return A2x(self.fk(q, index, base=base, tip=tip))
         else:
             def get_pose(q):
-                return arm.fk(q)[0:2, 3]
+                return arm.fk(q, index, base=base, tip=tip)[0:2, 3]
 
         x0 = get_pose(q)
         m = x0.shape[0]
@@ -319,148 +318,151 @@ class SerialArm:
 
         return J
 
-    def ik(self, A_target, q0=None, method='pinv', rep='planar', max_iter=100, tol=1e-3, viz=None, min_delta=1e-5, max_delta=np.inf, try_hard=False, kd=0.15, base=True, tip=True, nullq=None):
+    def hessian(self, q, index=None, base=False, tip=False):
+        if not isinstance(q, np.ndarray):
+            if hasattr(q, '__getitem__'):
+                q = np.asarray(q, dtype=data_type)
+            else:
+                q = np.array([q], dtype=data_type)
 
-        if q0 is None:
-            q0 = np.zeros((self.n,), dtype=data_type)
-        else:
-            q0 = np.copy(q0)  # copy so that modifications to q0 internally don't change external code
+        # If q is a 2D numpy array, assume each row is a set of q's and do this
+        if len(q.shape) == 2:
+            output_shape = self.jacob(q[0], index, base, tip).shape
+            output = np.zeros(((q.shape[0],) + output_shape))
+            for i, q_in in enumerate(q):
+                output[i] = self.jacob(q_in, index, base, tip)
+            return output
 
-        if rep == 'rpy':
-            def get_pose(A):
-                return A2rpy(A)
-        elif rep == 'planar':
-            def get_pose(A):
-                return A2planar(A)
-        elif rep == 'cart':
-            def get_pose(A):
-                return A[0:3, 3]
-        elif rep == 'axis':
-            def get_pose(A):
-                return A2axis(A)
-        elif rep == 'q' or rep == 'quaternion':
-            def get_pose(A):
-                return A2q(A)
-        elif rep == 'x':
-            def get_pose(A):
-                return A2x(A)
-        else:
-            def get_pose(A):
-                return A[0:2, 3]
-
-        if method == 'pinv':
-            def get_qd(q, e):
-                J = self.jacoba(q, rep=rep)
-                Jdag = np.linalg.pinv(J)
-                qd = -Jdag @ e
-                return qd
-        elif method == 'jt':
-            def get_qd(q, e):
-                J = self.jacoba(q, rep=rep)
-                qd = -J.T @ e * kd
-                return qd
-        elif method == 'damped':
-            def get_qd(q, e):
-                J = self.jacoba(q, rep=rep)
-                I = np.eye(J.shape[0])
-                Jdag = J.T @ np.linalg.inv(J @ J.T + kd * I)
-                qd = -Jdag @ e
-                return qd
-        else:
-            print(f"Warning: {method} is not a valid IK method!")
+        if len(q) != self.n:
+            raise ValueError("WARNING: q (input angle) not the same size as number of links!")
             return None
 
-        x_target = get_pose(A_target)
-        x0 = get_pose(self.fk(q0, base=base, tip=tip))
+        q, clipped = self.clipq(q)
+        if clipped and self.qlim_warning:
+            raise ValueError("WARNING! Joint input to jacob out of joint limits!")
 
-        e = x0 - x_target
-        q = q0
-        qs = [q]
-        count = 0
+        if index is None:
+            index = self.n
+        elif index > self.n:
+            raise ValueError("WARNING: Index greater than number of joints!")
+            print(f"Index: {index}")
 
-        status = True
-        report = 'Successfully converged'
+        H = np.zeros((6, self.n, self.n))
+        J = self.jacob(q, base=base, tip=tip)
+        Ae = self.fk(q)
+        pe = Ae[0:3, 3]
 
-        while norm(e) > tol:
-            count += 1
-            qd = get_qd(q, e)
+        for j in range(self.n):
+            Jj = self.jacob(q, index=j, base=base, tip=tip)
+            Aj = self.fk(q, index=j, base=base, tip=tip)
+            zj = Aj[0:3, 2]
+            pj = pe - Aj[0:3, 3]
+            for k in range(self.n):
+                zk = Jj[3:6, k]
+                delz = np.cross(zk, zj)
+                delv = J[0:3, k] - Jj[0:3, k]
+                H[0:3, j, k] = np.cross(delz, pj) + np.cross(zj, delv)
+                H[3:6, j, k] = delz
 
-            if norm(qd) < 1e-16:  # get out of singularities
-                qd += np.random.random_sample((self.n,)) * 0.002 - 0.001
+        return H
+
+    def ik(self, target, q0=None, method='pinv', rep=None, tol=1e-4, mit=1000, maxdel=np.inf, mindel=1e-6, force=False, retry=0, viz=None, base=False, tip=False, **kwargs):
+        """
+        Wrapper for general IK function
+        :param target: iterable or np.ndarray[size: (4, 4)], can be [x y], [x y z], [x y theta] (use rep='planar'), 4x4 transform, [x y z r p y] or [x y z q0 q1 q2 q3]
+        :param q0: iterable, initial joint position, defaults to [0] * self.n
+        :param method: string, method to use. ['pinv', 'jt', 'SLSQP', 'CCD', 'fabrik', 'hessian']
+        :param tol: float, stopping tolerance of norm(error)
+        :param mit: int, maximum iteration
+        :param maxdel: float, maximum norm of qdot for single iteration
+        :param mindel: float, minimum norm of qdot before termination
+        :param force: bool, attempt even when target is outside of arm naive reach test
+        :param retry: int, how many times to retry with random starting position if failed
+        :param kwargs: additional key word arguments to pass to specific methods
+        :return: sol, IKOutput object
+        """
+
+        # handle target argument
+        """
+        four cases, full 3D pose (x y z q0 q1 q2 q3), 3D cartesian (x y z), planar (x y theta) and planar cartesian (x y)
+        """
+        if not isinstance(target, np.ndarray):
+            target = np.array(target, dtype=float)
+
+        if len(target.shape) == 2: # treat target as a 4x4 homogeneous transform
+            quat = R2q(target[0:3, 0:3])
+            target = np.hstack([target[0:3, 3], quat])
+            getx = lambda q: A2q(self.fk(q, base=base, tip=tip))
+            getJ = lambda q: self.jacoba(q, rep='q', base=base, tip=tip)
+            dist = np.linalg.norm(target[0:3] - self.base[0:3, 3])
+        elif target.shape[0] == 2:  # treat as a x-y target
+            getx = lambda q: self.fk(q, base=base, tip=tip)[0:2, 3]
+            getJ = lambda q: self.jacob(q, base=base, tip=tip)[0:2]
+            dist = np.linalg.norm(self.base[0:2, 3] - target)
+        elif target.shape[0] == 3:
+            if rep is None or rep == 'cart' or rep == 'xyz':  # assume xyz
+                getx = lambda q: self.fk(q, base=base, tip=tip)[0:3, 3]
+                getJ = lambda q: self.jacob(q, base=base, tip=tip)[0:3]
+                dist = np.linalg.norm(target - self.base[0:3, 3])
+            elif rep == 'planar':
+                def getx(q):
+                    A = self.fk(q, base=base, tip=tip)
+                    theta = rot2theta(A[0:2, 0:2])
+                    return np.array([A[0, 3], A[1, 3], theta])
+                def getJ(q):
+                    return self.jacob(q)[[0, 1, 5]]
+                dist = np.linalg.norm(target[0:2] - self.base[0:2, 3])
+        elif target.shape[0] == 6:  # rpy input
+            quat = R2q(rpy2R(target[3:6]))
+            target = np.hstack([target[0:3], quat])
+            getx = lambda q: A2q(self.fk(q, base=base, tip=tip))
+            getJ = lambda q: self.jacoba(q, rep='q', base=base, tip=tip)
+            dist = np.linalg.norm(target[0:3] - self.base[0:3, 3])
+        elif target.shape[0] == 7:  # quat input
+            getx = lambda q: A2q(self.fk(q, base=base, tip=tip))
+            getJ = lambda q: self.jacoba(q, rep='q', base=base, tip=tip)
+            dist = np.linalg.norm(target[0:3] - self.base[0:3, 3])
+
+        if q0 is None:
+            q0 = np.array([0] * self.n)
+        elif not isinstance(q0, np.ndarray):
+            q0 = np.array(q0)
+
+        # if not force:
+        #     if dist > self.reach + tol:
+        #         raise ValueError('Target fails naive reach test!')
+
+        if method == 'pinv':
+            if 'K' not in kwargs.keys():
+                K = np.eye(len(target))
             else:
-                if norm(qd) > max_delta:
-                    qd = qd / norm(qd) * max_delta
-                # Do a simple line search to make sure we are still moving towards the goal
-                while norm(get_pose(self.fk(q + qd, base=base, tip=tip)) - x_target) > norm(e) and norm(qd) > 1e-6:
-                    qd = qd * 0.5
+                K = kwargs['K']
+                if not isinstance(K, np.ndarray):
+                    K = K * np.eye(len(target))
+            sol = ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K)
+        elif method == 'jt':
+            if 'K' not in kwargs.keys():
+                K = np.eye(len(target)) * 0.15
+            else:
+                K = kwargs['K']
+                if not isinstance(K, np.ndarray):
+                    K = K * np.eye(len(target))
+            if 'Kd' not in kwargs.keys():
+                Kd = np.eye(len(target)) * 0.1
+            else:
+                Kd = kwargs['Kd']
+                if not isinstance(Kd, np.ndarray):
+                    Kd = Kd * np.eye(len(target))
+            sol = ik_jt(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K, Kd)
+        elif method == 'CCD' or method == 'ccd':
+            sol = ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry, viz)
+        elif method == 'scipy':
+            sol = ik_scipy(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz)
 
-            if nullq is not None:
-                qd_desired = nullq(q, qd)
-                J = self.jacoba(q, rep=rep)
-                qdnull = (np.eye(self.n) - np.linalg.pinv(J) @ J) @ qd_desired
-                qdstar = qd + qdnull
-                qd = qdstar / np.linalg.norm(qdstar) * np.linalg.norm(qd)
+        return sol
 
-            q = q + qd
 
-            for i in range(self.n):
-                if self.jt[i] == 'r':
-                    q[i] = wrap_angle(q[i])
-
-            x = get_pose(self.fk(q, base=base, tip=tip))
-
-            if viz is not None:
-                viz.update(q)
-
-            e = x - x_target
-
-            qs.append(q)
-
-            if count > max_iter:
-                status = False
-                report = 'Did not converge within max_iter limit'
-                break
-            elif norm(qd) < min_delta:
-                status = False
-                report = 'Terminated because change in q below minimum epsilon'
-                break
-        xf = get_pose(self.fk(q, base=base, tip=tip))
-        qs = np.asarray(qs)
-        output = IKOutput(q, xf, x_target, status, report, count, e, norm(e), qs)
-
-        if not output.status and try_hard:
-            print(f"Trying from new starting point, {report}")
-            q0 += (np.random.random_sample((self.n,)) * 2 * pi - pi) * 0.05
-            output = self.ik(A_target, q0, method, rep, max_iter, tol, viz, min_delta, max_delta)
-
-        return output
-
-    def ik2(self, target, q0=None, rep='q', **kwargs):
-        """
-        *** Improvements over IK ***
-        1) better call signature: include some smarter default options, better guesses based on target type (shouldn't
-        need to be a full 4x4 when not required) to save time
-        2) Internal use of quaternions to simplify structure (no "rep" input) and improve jacobian
-        3) Better line search
-        4) More method options (e.g. pinv, jt, fabrik, SLSPQ, etc.)
-        5) Optional hessian search
-        6) clean ouput with trajectory as part of output
-        7) Better system for handling failure; option to restart from other location, etc.
-
-        Breakdown of function call:
-
-        - parse target; if  4x4, then interpret as se3. if length 3, interpret as translation only; if length 7
-        interpret as translation and quaternion
-
-        - if needed pick default q0
-
-        - break into methods, passing kwargs into each method. Specific methods can be coded outside of the SerialArm
-        class in the kinematics module.
-
-        """
-        pass
-
-def shift_gamma(*args):
+def shift_gamma(*args, **kwargs):
     gamma = np.eye(6)
     for x in args:
         if len(x.shape) == 1:
@@ -472,36 +474,257 @@ def shift_gamma(*args):
         gamma = gamma @ gamma_new
     return gamma
 
-# change to dataclass
+# # change to dataclass
+# class IKOutput:
+#     def __init__(self, qf, xf, xt, status, report, nit, ef, nef, qs):
+#         self.qf = qf
+#         self.xf = xf
+#         self.xt = xt
+#         self.status = status
+#         self.message = report
+#         self.nit = nit
+#         self.ef = ef
+#         self.nef = nef
+#         self.qs = qs
+#
+#     def __str__(self):
+#         return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
+
+
+"""
+All IK method functions can trust getting some specific types of inputs, which will be handled in SerialArm.ik
+
+target: specific shape for the target
+getx: function of q that returns position in the same form as target
+getJ: function of q that gives analytic jacobian of getx
+
+These are set up in such a way that the error = ||target - getx(qc)||
+"""
+def ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K):
+
+    qs = [q0]
+    qc = q0
+    xc = getx(qc)
+    xt = target
+    nit = 0
+    e = xt - xc
+
+    while np.linalg.norm(e) > tol and nit < mit:
+        J = getJ(qc)
+        # Jdag = np.linalg.pinv(J)
+        Jdag = J.T @ np.linalg.inv(J @ J.T + np.eye(len(target)) * 1e-8)
+        qd = Jdag @ K @ e
+
+        qdnorm = np.linalg.norm(qd)
+
+        # def f(alpha):
+        #     qdot = qd / qdnorm * alpha
+        #     qopt = qc + qdot
+        #     return np.linalg.norm(target - getx(qopt))**2
+        #
+        # alpha = optimize.minimize_scalar(f, bounds=(-maxdel, maxdel), method='bounded', options={'xatol':tol}).x
+        # qd = qd / qdnorm * alpha
+        # qdnorm = np.abs(alpha)
+
+        if qdnorm > maxdel:
+            qd = qd / qdnorm * maxdel
+
+        while np.linalg.norm(getx(qc + qd) - target) > np.linalg.norm(e) and qdnorm > mindel * 5:
+            qd = qd * 0.75
+
+        qdnorm = np.linalg.norm(qd)
+
+        if qdnorm < mindel:
+            break
+
+        qc = qc + qd
+        wrap_angle(qc)
+        qs.append(qc)
+        nit += 1
+
+        if viz is not None:
+            viz.update(qc)
+
+        xc = getx(qc)
+        e = xt - xc
+
+    en = np.linalg.norm(e)
+    if en <= tol:
+        status = True
+        message = 'Successfully converged'
+    else:
+        status = False
+        if nit == mit:
+            message = 'Failed to converge within maximum iteration limit'
+        elif qdnorm < mindel:
+            message = 'Failed to converge, qdot less than minimum'
+
+    if retry > 0 and not status:
+        q0 = np.random.random((len(q0),)) * 2 * np.pi - np.pi
+        output = ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry - 1, viz, K)
+    else:
+        output = IKOutput(qc, qs, e, en, nit, status, message)
+
+    return output
+
+
+def ik_jt(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K, Kd):
+    qs = [q0]
+    qc = q0
+    xc = getx(qc)
+    xt = target
+    nit = 0
+    e = xt - xc
+    de = np.zeros_like(e)
+
+    while np.linalg.norm(e) > tol and nit < mit:
+        J = getJ(qc)
+        qd = J.T @ K @ e - J.T @ Kd @ de
+
+        qdnorm = np.linalg.norm(qd)
+
+        def f(alpha):
+            qdot = qd / qdnorm * alpha
+            qopt = qc + qdot
+            return np.linalg.norm(target - getx(qopt))**2
+
+        alpha = optimize.minimize_scalar(f, bounds=(-maxdel, maxdel), method='bounded', options={'xatol':tol}).x
+        qd = qd / qdnorm * alpha
+        qdnorm = np.abs(alpha)
+
+        if qdnorm > maxdel:
+            qd = qd / qdnorm * maxdel
+
+        while np.linalg.norm(getx(qc + qd) - target) > np.linalg.norm(e) and qdnorm > mindel * 5:
+            qd = qd * 0.75
+
+        qdnorm = np.linalg.norm(qd)
+
+        if qdnorm < mindel:
+            break
+
+        qc = qc + qd
+        qs.append(qc)
+        nit += 1
+
+        if viz is not None:
+            viz.update(qc)
+
+        xc = getx(qc)
+        de = e - (xt - xc)
+        e = xt - xc
+
+    en = np.linalg.norm(e)
+    if en <= tol:
+        status = True
+        message = 'Successfully converged'
+    else:
+        status = False
+        if nit == mit:
+            message = 'Failed to converge within maximum iteration limit'
+        elif qdnorm < mindel:
+            message = 'Failed to converge, qdot less than minimum'
+
+    if retry > 0 and not status:
+        q0 = np.random.random((len(q0),)) * 2 * np.pi - np.pi
+        output = ik_jt(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry - 1, viz, K, Kd)
+    else:
+        output = IKOutput(qc, qs, e, en, nit, status, message)
+
+    return output
+
+
+def ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry, viz):
+    qs = [q0]
+    qc = q0
+    xc = getx(qc)
+    xt = target
+    nit = 0
+    e = xt - xc
+
+    index = 0
+    n = len(q0)
+
+    while np.linalg.norm(e) > tol and nit < mit:
+
+        def func(a):
+            q = np.copy(qc)
+            q[index] += a
+            return np.linalg.norm(target - getx(q))**2
+
+        a = optimize.minimize_scalar(func, bounds=(-maxdel, maxdel), method='brent', tol=tol).x
+        qdnorm = np.abs(a)
+        qd = np.zeros((n,))
+        qd[index] = a
+        qc = qc + qd
+        qs.append(qc)
+        nit += 1
+        e = target - getx(qc)
+
+        if viz is not None:
+            viz.update(qc)
+
+        index += 1
+        if index == n:
+            index = 0
+
+    en = np.linalg.norm(e)
+    if en <= tol:
+        status = True
+        message = 'Successfully converged'
+    else:
+        status = False
+        if nit == mit:
+            message = 'Failed to converge within maximum iteration limit'
+        elif qdnorm < mindel:
+            message = 'Failed to converge, qdot less than minimum'
+
+    if retry > 0 and not status:
+        q0 = np.random.random((len(q0),)) * 2 * np.pi - np.pi
+        output = ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry - 1, viz)
+    else:
+        output = IKOutput(qc, qs, e, en, nit, status, message)
+
+    return output
+
+
+def ik_scipy(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz):
+    jac = lambda q: -getJ(q).T @ (target - getx(q))
+    fun = lambda q: np.linalg.norm(target - getx(q))**2
+    bounds = [(-np.pi, np.pi)] * len(q0)
+    qs = [q0]
+    def callback(qk, state=None):
+        if viz is not None:
+            viz.update(qk)
+        qs.append(qk)
+
+    options = {'maxiter':mit}
+
+    sol = optimize.minimize(fun, q0, jac=jac, callback=callback, tol=tol / 1000, options=options, method='BFGS')
+    qf = sol.x
+    qs.append(qf)
+    nit = sol.nit
+    ef = target - getx(qf)
+    en = np.linalg.norm(ef)
+    status = np.linalg.norm(ef) <= tol
+    message = sol.message
+    if not status and retry > 0:
+        return ik_scipy(target, getx, getJ, np.random.random((len(q0),)) * np.pi * 2 - np.pi, tol, mit, maxdel, mindel, retry - 1, viz)
+    else:
+        return IKOutput(qf, qs, ef, en, nit, status, message)
+
+
 class IKOutput:
-    def __init__(self, qf, xf, xt, status, report, nit, ef, nef, qs):
+    def __init__(self, qf, qs, ef, en, nit, status, message):
         self.qf = qf
-        self.xf = xf
-        self.xt = xt
-        self.status = status
-        self.message = report
-        self.nit = nit
-        self.ef = ef
-        self.nef = nef
         self.qs = qs
+        self.ef = ef
+        self.en = en
+        self.nit = nit
+        self.status = status
+        self.message = message
 
     def __str__(self):
-        return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
-
-
-def ik_pinv(arm, target, q0, **kwargs):
-    pass
-
-
-@dataclass
-class IkOutput2:
-    qf: np.ndarray = np.array([])
-    xf: np.ndarray = np.array([])
-    xt: np.ndarray = np.array([])
-    status: int = 10
-    message: str = "Not Initialized"
-    nit: int = 0
-    ef: np.ndarray = np.array([])
-    nef: float = 0.0
-    qs: np.ndarray = np.array([])
-    time: float = 0.0
+        output = f"IK Solution:\nSuccess: {self.status}, with output message: {self.message}\n"
+        output = output + f"Final q: {self.qf}\nFinal Error Norm: {self.en}\nIterations: {self.nit}\n"
+        return output

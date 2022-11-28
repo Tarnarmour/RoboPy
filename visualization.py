@@ -193,7 +193,7 @@ class VizScene:
         else:
             self.app = QApplication.instance()
         self.window = gl.GLViewWidget()
-        self.window.setWindowTitle('Robot Visualization 2: The Sequel')
+        self.window.setWindowTitle('RoboPy')
         self.window.setGeometry(200, 100, 1200, 900)
         self.grid = gl.GLGridItem()
         self.grid.scale(1, 1, 1)
@@ -222,12 +222,12 @@ class VizScene:
 
         self.app.processEvents()
 
-    def remove_arm(self, arm=None):
-        if arm is None:
+    def remove_arm(self, armIndex=None):
+        if armIndex is None:
             for arm in self.arms:
                 self.window.removeItem(arm.mesh_object)
             self.arms = []
-        elif isinstance(arm, (int)):
+        elif isinstance(armIndex, (int)):
             self.window.removeItem(self.arms[arm].mesh_object)
             self.arms.pop(arm)
         else:
