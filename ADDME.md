@@ -34,3 +34,5 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 29) Functionality for saving images from VizScene. First, a function that holds an app.processEvents() loop until user terminal input so that I can set up the image how I want. Then, a function that takes the current GLViewWindow, saves to an image, and puts it somewhere. It would be really cool if you could do this with GIF's as well, execute for a set time and save as a video or GIF. See https://groups.google.com/g/pyqtgraph/c/dKT1Z3nIeow/m/OErAgRPAbB8J
 30) SerialArm object should have preset joint configurations, e.g. zeros, maybe more for the premade arms
 31) ArmPlayer display Jacobian
+32) Rigid body kinematics, given q, qd, qdd, a, omega, and alpha return v, a, omega, and alpha for each frame
+33) Null space option on IK function
