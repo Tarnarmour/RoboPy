@@ -79,8 +79,8 @@ class SerialArm:
         :param jt: n length list or iterable of strings, 'r' for revolute joint and 'p' for prismatic joint
         :param base: 4x4 numpy or sympy array representing SE3 transform from world frame to frame 0
         :param tip: 4x4 numpy or sympy array representing SE3 transform from frame n to tool frame
-        :param joint_limits: 2 length list of n length lists, holding first negative joint limit then positive, none for
-        not implemented
+        :param joint_limits: n length list of 2 length lists, holding first negative joint limit then positive, none for
+        not implemented, as in [[-2, 2], [-2, 2], [-3.14, 1.56]]
         """
         self.dh = dh
         self.n = len(dh)
@@ -100,10 +100,10 @@ class SerialArm:
         self.reach = 0
         for i in range(self.n):
             self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
-        self.reach = self.reach * 1.1
+        # self.reach = self.reach * 1.1
 
         if joint_limits is None:
-            joint_limits = np.asarray([[-np.inf, np.inf] for i in range(self.n)])
+            joint_limits = np.asarray([[-10 * np.pi, 10 * np.pi] for i in range(self.n)])
         else:
             if not len(joint_limits) == self.n:
                 raise ValueError("WARNING! Joint limits list does not have the same size as dh param list!")
@@ -132,6 +132,12 @@ class SerialArm:
         q_out = np.clip(q, self.qlim[:, 0], self.qlim[:, 1])
         changed = not (q == q_out).all()
         return q_out, changed
+
+    def randq(self, p=1):
+        qs = np.random.random((p, self.n))
+        A = np.diag(self.qlim[:, 1] - self.qlim[:, 0])
+        qs = qs @ A + self.qlim[:, 0]
+        return qs
 
     def fk(self, q, index=None, base=False, tip=False, rep=None):
 
