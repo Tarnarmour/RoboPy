@@ -77,7 +77,7 @@ def R2euler(R, order='xyz'):
     Rf = R
 
     v = np.cross(Rf[:, axis3], (s * Ri[:, axis1]))
-    if norm(v) < 0.001:  # This indicates a rotation about the A axis ONLY.
+    if np.isclose(norm(v), 0):  # This indicates a rotation about the A axis ONLY.
         th1 = np.arccos(Ri[:, axis2] @ (Rf[:, axis2]))
         th2 = 0
         th3 = 0
@@ -134,6 +134,7 @@ def R2q(R):
                      0.5*np.sign(R[1, 0] - R[0, 1]) * sqrt(np.abs(R[2, 2] - R[0, 0] - R[1, 1] + 1))])
 
 def q2R(q):
+    q = q / norm(q)
     nu = q[0]
     ex = q[1]
     ey = q[2]

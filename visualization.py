@@ -335,7 +335,6 @@ class VizScene:
             while time.perf_counter() < time_end:
                 self.app.processEvents()
 
-
     def wander(self, index=None, q0=None, speed=1e-1, duration=np.inf, accel=5e-4):
         if index is None:
             index = range(len(self.arms))

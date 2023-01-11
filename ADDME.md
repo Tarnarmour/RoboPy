@@ -36,3 +36,4 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 31) ArmPlayer display Jacobian
 32) Rigid body kinematics, given q, qd, qdd, a, omega, and alpha return v, a, omega, and alpha for each frame
 33) Null space option on IK function
+34) FrameMeshObject should just be part of FrameViz

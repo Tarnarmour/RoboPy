@@ -98,7 +98,7 @@ retry = 0
 
 ## declare kwargs for specific test
 # Pseudo-inverse method
-kwargs = {'method':'pinv'}
+# kwargs = {'method':'pinv'}
 
 # Jacobian Transpose
 # kwargs = {'method':'jt', 'K':0.15, 'Kd':0.0}
@@ -108,7 +108,7 @@ kwargs = {'method':'pinv'}
 # kwargs = {'method':'ccd'}
 
 # Scipy Method
-# kwargs = {'method':'scipy'}
+kwargs = {'method':'scipy', 'opt':'trust-exact'}
 
 
 ## Set up tracking numbers
@@ -129,7 +129,8 @@ def call_ik(arm, target, q0=None):
     sol = arm.ik(target, q0=q0, tol=tol, mit=mit, maxdel=maxdel, mindel=mindel, force=force, retry=retry, **kwargs)
     tock = time.perf_counter()
     if not sol.status:
-        print(sol.message)
+        # print(sol.message)
+        pass
     # print(arm, sol.message)
     return sol.status, tock - tick
 
@@ -142,7 +143,7 @@ def call_arm_general(arm):
     for i in range(1):
         q0 = [0] * arm.n
         qf = np.random.random((arm.n,)) * np.pi * 2 - np.pi
-        target = arm.fk(qf)
+        target = arm.fk(qf, rep='cart')
         success, time = call_ik(arm, target, q0)
 
         total_trials += 1
@@ -155,7 +156,7 @@ def call_arm_general(arm):
         q0 = np.random.random((arm.n,)) * np.pi * 2 - np.pi
         qf = [0] * arm.n
 
-        target = arm.fk(qf)
+        target = arm.fk(qf, rep='cart')
         success, time = call_ik(arm, target, q0)
 
         total_trials += 1
@@ -168,7 +169,7 @@ def call_arm_general(arm):
         q0 = np.random.random((arm.n,)) * np.pi * 2 - np.pi
         qf = np.random.random((arm.n,)) * np.pi * 2 - np.pi
 
-        target = arm.fk(qf)
+        target = arm.fk(qf, rep='cart')
         success, time = call_ik(arm, target, q0)
 
         total_trials += 1
@@ -189,6 +190,7 @@ if __name__ == '__main__':
     print(f"Total Time: {total_time}\t Average Time for Successful Trial: {success_time / success_trials}")
 
 """
+*** Full Position + Orientation Tests, Using Quaternion (default) Representation ***
 pinv v1:
 45.5%, 0.019
 
@@ -215,4 +217,11 @@ ccd v1:
 
 scipy v1: Note, fails very quickly, so the overall test is very fast
 40.8%, 0.055
+
+*** Position Only Tests ***
+pinv v4: using manual pseudo-inverse
+70.8%, 0.012
+
+scipy v2: Using hessian, trust-exact method
+
 """

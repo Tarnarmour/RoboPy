@@ -457,7 +457,12 @@ class SerialArm:
         elif method == 'CCD' or method == 'ccd':
             sol = ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry, viz)
         elif method == 'scipy':
-            sol = ik_scipy(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz)
+            getH = lambda q: self.hessian(q, base=base, tip=tip)[:, 0:3, :]
+            if 'opt' not in kwargs.keys():
+                opt = 'BFGS'
+            else:
+                opt = kwargs['opt']
+            sol = ik_scipy(target, getx, getJ, getH, q0, tol, mit, maxdel, mindel, retry, viz, opt)
 
         return sol
 
@@ -473,23 +478,6 @@ def shift_gamma(*args, **kwargs):
             gamma_new = np.block([[x.T, np.zeros((3,3))], [np.zeros((3,3)), x.T]])
         gamma = gamma @ gamma_new
     return gamma
-
-# # change to dataclass
-# class IKOutput:
-#     def __init__(self, qf, xf, xt, status, report, nit, ef, nef, qs):
-#         self.qf = qf
-#         self.xf = xf
-#         self.xt = xt
-#         self.status = status
-#         self.message = report
-#         self.nit = nit
-#         self.ef = ef
-#         self.nef = nef
-#         self.qs = qs
-#
-#     def __str__(self):
-#         return f"IK OUTPUT:\nq final: {self.qf} \nStatus: {self.status} \nMessage: {self.message} \nIteration number: {self.nit} \nTarget Pose: {self.xt}\nFinal Pose: {self.xf}\nFinal Error: {self.ef} \nFinal Error Norm: {self.nef}"
-
 
 """
 All IK method functions can trust getting some specific types of inputs, which will be handled in SerialArm.ik
@@ -516,15 +504,6 @@ def ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K):
         qd = Jdag @ K @ e
 
         qdnorm = np.linalg.norm(qd)
-
-        # def f(alpha):
-        #     qdot = qd / qdnorm * alpha
-        #     qopt = qc + qdot
-        #     return np.linalg.norm(target - getx(qopt))**2
-        #
-        # alpha = optimize.minimize_scalar(f, bounds=(-maxdel, maxdel), method='bounded', options={'xatol':tol}).x
-        # qd = qd / qdnorm * alpha
-        # qdnorm = np.abs(alpha)
 
         if qdnorm > maxdel:
             qd = qd / qdnorm * maxdel
@@ -688,9 +667,25 @@ def ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry, viz):
     return output
 
 
-def ik_scipy(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz):
-    jac = lambda q: -getJ(q).T @ (target - getx(q))
-    fun = lambda q: np.linalg.norm(target - getx(q))**2
+def ik_scipy(target, getx, getJ, getH, q0, tol, mit, maxdel, mindel, retry, viz, opt):
+
+    def fun(q):
+        e = target - getx(q)
+        output = 0.5 * e @ e
+        return output
+
+    def jac(q):
+        J = getJ(q)
+        e = target - getx(q)
+        output = -e @ J
+
+    def hess(q):
+        J = getJ(q)
+        H = getH(q)
+        e = target - getx(q)
+        output = J.T @ J - e @ H
+        return output
+
     bounds = [(-np.pi, np.pi)] * len(q0)
     qs = [q0]
     def callback(qk, state=None):
@@ -700,7 +695,7 @@ def ik_scipy(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz):
 
     options = {'maxiter':mit}
 
-    sol = optimize.minimize(fun, q0, jac=jac, callback=callback, tol=tol / 1000, options=options, method='BFGS')
+    sol = optimize.minimize(fun, q0, jac=jac, hess=hess, callback=callback, tol=tol / 1000, options=options, method=opt)
     qf = sol.x
     qs.append(qf)
     nit = sol.nit
