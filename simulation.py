@@ -49,12 +49,11 @@ class RobotSys:
         self.dyn_method = dyn_method
 
     def eom(self, x, t, f, g):
+    # def eom(self, x, t, tau, Wext):
 
         q, qd = x[0:self.n], x[self.n:None]
         tau = f(t, x)
         Wext = g(t, x)
-
-        tau
 
         if self.dyn_method == 'rne':
             qdd = self.arm.forward_rne(q, qd, tau, g=self.g, Wext=Wext)
@@ -82,6 +81,14 @@ class RobotSys:
         f2 = self.eom(x0 + f1 * self.dt / 2, t1, f, g)
         f3 = self.eom(x0 + f2 * self.dt / 2, t2, f, g)
         f4 = self.eom(x0 + f3 * self.dt, t3, f, g)
+
+        # tau = f(t0, x0)
+        # Wext = g(t0, x0)
+        #
+        # f1 = self.eom(x0, t0, tau, Wext)
+        # f2 = self.eom(x0 + f1 * self.dt / 2, t1, tau, Wext)
+        # f3 = self.eom(x0 + f2 * self.dt / 2, t2, tau, Wext)
+        # f4 = self.eom(x0 + f3 * self.dt, t3, tau, Wext)
 
         self.x = self.x + self.dt / 6 * (f1 + 2*f2 + 2*f3 + f4)
 

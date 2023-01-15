@@ -232,7 +232,7 @@ class SerialArmDyn(SerialArm):
 
     def get_KE(self, q, qd):
         M = self.get_M(q)
-        return qd.T @ M @ qd
+        return 0.5 * qd.T @ M @ qd
 
     def get_PE(self, q, g=np.array([0, 0, 0])):
         PE = 0.0
