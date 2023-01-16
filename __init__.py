@@ -6,3 +6,4 @@ from .visualization import *
 from .premade_arms import *
 from .simulation import *
 from .VizSceneSource import *
+from .controls import *

@@ -2,14 +2,10 @@ from RoboPy import *
 import numpy as np
 from numpy import pi
 
-viz = VizScene()
-rightArm = Baxter('right', 1)
-leftArm = Baxter('left', 1)
-rightArm.set_qlim_warnings(False)
-leftArm.set_qlim_warnings(False)
-viz.add_arm(rightArm)
-viz.add_arm(leftArm)
-viz.wander()
-viz.hold()
-
+arm1 = PlanarDyn(n = 2, L = 1, joint_damping=[0.1, 0.1])
+dh = [[0, 0, 1, 0], [0, 0, 1, 0]]
+den = 1.0
+mm = 0
+damping = 0.1
+arm2 = SimpleDynArm(dh, linear_density=den, damping=damping)
 

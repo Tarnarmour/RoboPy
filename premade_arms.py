@@ -35,21 +35,90 @@ def PlanarDyn(n=3, L=1, joint_damping=None):
     for ll in L:
         r_coms.append(np.array([-ll / 2, 0, 0]))
         In = np.array([[0, 0, 0],
-                       [0, ll**3/12, 0],
-                       [0, 0, ll**3/12]])
+                       [0, ll**2/12, 0],
+                       [0, 0, ll**2/12]])
         link_inertias.append(In)
         dh.append([0, 0, ll, 0])
 
     arm = SerialArmDyn(dh, link_inertia=link_inertias, mass=mass, r_com=r_coms, joint_damping=joint_damping)
     return arm
 
-def SimpleDynArm(dh, linear_density=1.0, motor_weight=1.0, damping=0.1):
+def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=1.0, damping=0.1):
     """A generic constructor that takes in DH parameters and joint types and makes an assumption of linear density,
     then calculates the dynamic parameters for each link assuming slender links."""
     mass = []
     r_com = []
     link_inertia = []
     joint_damping = []
+
+    n = len(dh)
+
+    if isinstance(motor_mass, (int, float)):
+        motor_mass = [motor_mass] * n
+
+    if jt is None:
+        jt = ['r'] * n
+
+    """
+    The general idea is this: we can find the length of each link by assuming that the link forms a straight line from
+    frame i - 1 to frame i with linear density. Then the mass will be simple to find and the rotational inertia can be
+    found by finding the required shift and rotation that transforms the slender body to the right orientation
+    """
+
+    for i in range(n):
+        d = dh[i][0]
+        theta = dh[i][1]
+        a = dh[i][2]
+        alpha = dh[i][3]
+
+        cth = np.cos(theta)
+        sth = np.sin(theta)
+        cal = np.cos(alpha)
+        sal = np.sin(alpha)
+
+        Ap2c = np.array([[cth, -sth * cal, sth * sal, a * cth],
+                          [sth, cth * cal, -cth * sal, a * sth],
+                          [0, sal, cal, d],
+                          [0, 0, 0, 1]])
+        Ac2p = inv(Ap2c)
+
+        rc2p = Ac2p[0:3, 3]  # vector from frame i to frame i-1
+        r_lcom = rc2p * 0.5  # vector to COM of link
+        r_m = rc2p  # vector to motor
+        ll = np.linalg.norm(rc2p)
+        lm = ll * linear_density
+        mm = motor_mass[i]
+
+        com = (r_lcom * lm + r_m * mm) / (mm + lm)  # find COM by weighted average of link COM and motor COM
+
+        I_link_body = np.array([[0, 0, 0],
+                                [0, ll**2 / 12 * lm, 0],
+                                [0, 0, ll**2 / 12 * lm]])  # inertia tensor of link at the link COM in the link body frame
+
+        i_b = rc2p / ll  # link body frame i unit vector is aligned with the vector from i to i-1 frame (along link length)
+        k_b = np.cross(i_b, np.array([1, 0, 0]))  # find z unit vector by crossing i_b and i_i
+        if np.linalg.norm(k_b) == 0:  # unless i_b and i_i are already parallel, then cross with j_i vector
+            k_b = np.cross(i_b, np.array([0, 1, 0]))
+        k_b = k_b / np.linalg.norm(k_b)
+        j_b = np.cross(k_b, i_b)
+        R_b = np.vstack([i_b, j_b, k_b]).T
+        I_link_i = R_b.T @ I_link_body @ R_b
+        r_link2com = com - r_lcom
+        r_motor2com = com - r_m
+        I_combined = I_link_i + lm * (r_link2com @ r_link2com * np.eye(3) - np.outer(r_link2com, r_link2com)) \
+                     + mm * (r_motor2com @ r_motor2com * np.eye(3) - np.outer(r_motor2com, r_motor2com))
+
+        mass.append(lm + mm)
+        r_com.append(com)
+        link_inertia.append(I_combined)
+        joint_damping.append(damping)
+
+    return SerialArmDyn(dh=dh,
+                        jt=jt,
+                        mass=mass,
+                        r_com=r_com,
+                        link_inertia=link_inertia,
+                        joint_damping=joint_damping)
 
 def Panda(s=1):
     """Franka emika Panda robot"""
