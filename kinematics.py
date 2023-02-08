@@ -112,7 +112,7 @@ class SerialArm:
 
         self.qlim = joint_limits
 
-        self.qlim_warning = True
+        self.qlim_warning = False
 
     def __str__(self):
         dh_string = """DH PARAMS\n"""
