@@ -93,17 +93,18 @@ class SerialArm:
                 raise ValueError("WARNING! Joint Type list does not have the same size as dh param list!")
         for i in range(self.n):
             T = DH2Func(dh[i], self.jt[i])
-            self.transforms.append(T.f)
+            self.transforms.append(T)
 
         self.base = base
         self.tip = tip
         self.reach = 0
         for i in range(self.n):
-            self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
+            if self.jt[i] != 'c':  # don't attempt for custom joint types
+                self.reach += np.sqrt(self.dh[i][0]**2 + self.dh[i][2]**2)
         # self.reach = self.reach * 1.1
 
         if joint_limits is None:
-            joint_limits = np.asarray([[-10 * np.pi, 10 * np.pi] for i in range(self.n)])
+            joint_limits = None
         else:
             if not len(joint_limits) == self.n:
                 raise ValueError("WARNING! Joint limits list does not have the same size as dh param list!")
@@ -129,14 +130,21 @@ class SerialArm:
         self.qlim_warning = bool(warnings_on)
 
     def clipq(self, q):
-        q_out = np.clip(q, self.qlim[:, 0], self.qlim[:, 1])
-        changed = not (q == q_out).all()
+        if self.qlim is not None:
+            q_out = np.clip(q, self.qlim[:, 0], self.qlim[:, 1])
+            changed = not (q == q_out).all()
+        else:
+            q_out = q
+            changed = False
         return q_out, changed
 
     def randq(self, p=1):
         qs = np.random.random((p, self.n))
-        A = np.diag(self.qlim[:, 1] - self.qlim[:, 0])
-        qs = qs @ A + self.qlim[:, 0]
+        if self.qlim is not None:
+            A = np.diag(self.qlim[:, 1] - self.qlim[:, 0])
+            qs = qs @ A + self.qlim[:, 0]
+        else:
+            qs = (np.random.random((p, self.n)) * 2 - 1) * np.pi
         return qs
 
     def fk(self, q, index=None, base=False, tip=False, rep=None):
@@ -197,18 +205,55 @@ class SerialArm:
             A = eye
 
         for i in range(start_frame, end_frame):
-            A = A @ self.transforms[i](q[i])
-
-        if tip and end_frame == self.n:
-            A = A @ self.tip
+            A = A @ self.transforms[i].f(q[i])
 
         if rep is None:
             return A
         else:
             return A2pose(A, rep)
 
-    def jacob(self, q, index=None, base=False, tip=False):
+    def fk_com(self, q, base=False):
+        """
+        Find the center of mass, assuming weightless motors and links with constant linear density. Always returned
+        with respect to frame 0 or world frame (if base is true). Only cartesian values [x y z]
+        """
+        # handle input: we want to accept any iterable or scalar and turn it into an np.array
+        if not isinstance(q, np.ndarray):
+            if hasattr(q, '__getitem__'):
+                q = np.asarray(q, dtype=data_type)
+            else:
+                q = np.array([q], dtype=data_type)
 
+        # If q is a 2D numpy array, assume each row is a set of q's and do this
+        if len(q.shape) == 2:
+            output_shape = self.fk_com(q[0], index, base, tip, rep).shape
+            output = np.zeros(((q.shape[0],) + output_shape))
+            for i, q_in in enumerate(q):
+                output[i] = self.fk_com(q_in, index, base, tip, rep)
+            return output
+
+        if len(q) != self.n:
+            raise ValueError("WARNING: q (input angle) not the same size as number of links!")
+            return None
+
+        q, clipped = self.clipq(q)
+        if clipped and self.qlim_warning:
+            raise ValueError("WARNING! Joint input to fk out of joint limits!")
+
+        p_com = np.zeros((3,))
+        p_prev = self.base[0:3, 3] if base else np.zeros((3,))
+        mass = 0
+
+        for i in range(self.n):
+            p_cur = self.fk(q, i + 1, base=base, rep='cart')
+            p_com += 0.5 * (p_cur + p_prev) * np.linalg.norm(p_cur - p_prev)  # location of com multiplied by weight, assuming straight line link between i-1 and i and constant linear density
+            mass += np.linalg.norm(p_cur - p_prev)
+            p_prev = p_cur
+
+        p_com = p_com / mass
+        return p_com
+
+    def jacob(self, q, index=None, base=False, tip=False):
         # handle input: we want to accept any iterable or scalar and turn it into an np.array
         if not isinstance(q, np.ndarray):
             if hasattr(q, '__getitem__'):
@@ -249,11 +294,62 @@ class SerialArm:
                 p = T[0:3, 3]
                 J[0:3, i] = np.cross(z_axis, pe - p, axis=0)
                 J[3:6, i] = z_axis
-            else:
+            elif self.jt[i] == 'p':
                 T = self.fk(q, i, base=base, tip=tip)
                 z_axis = T[0:3, 2]
                 J[0:3, i] = z_axis
                 J[3:6, i] = np.zeros_like(z_axis)
+            elif self.jt[i] == 'c':  # custom joint type, use predefined partials stored in self.Ts
+                pass
+            else:
+                raise ValueError("WARNING: Unknown joint type!")
+                print(f"Joint type for joint {i} is '{self.jt[i]}'")
+
+        return J
+
+    def jacob_com(self, q, base=False):
+        """
+        Find the jacobian of the center of mass, assuming weightless joints and constant linear density. Always returns
+        [x y z] with respect to either world frame or base frame
+        :param q:
+        :param base:
+        :return:
+        """
+        # handle input: we want to accept any iterable or scalar and turn it into an np.array
+        if not isinstance(q, np.ndarray):
+            if hasattr(q, '__getitem__'):
+                q = np.asarray(q, dtype=data_type)
+            else:
+                q = np.array([q], dtype=data_type)
+
+        # If q is a 2D numpy array, assume each row is a set of q's and do this
+        if len(q.shape) == 2:
+            output_shape = self.jacob_com(q[0], index, base, tip).shape
+            output = np.zeros(((q.shape[0],) + output_shape))
+            for i, q_in in enumerate(q):
+                output[i] = self.jacob_com(q_in, index, base, tip)
+            return output
+
+        if len(q) != self.n:
+            raise ValueError("WARNING: q (input angle) not the same size as number of links!")
+            return None
+
+        q, clipped = self.clipq(q)
+        if clipped and self.qlim_warning:
+            raise ValueError("WARNING! Joint input to jacob out of joint limits!")
+
+        J = np.zeros((6, self.n), dtype=data_type)
+        mass = 0
+
+        p_prev = self.base[0:3, 3] if base else np.zeros((3,))
+
+        for i in range(self.n):
+            p_cur = self.fk(q, i + 1, base=base, rep='cart')
+            r_com = 0.5 * (p_prev - p_cur)
+            J += shift_gamma(r_com) @ self.jacob(q, i + 1) * np.linalg.norm(p_prev - p_cur)
+            mass += np.linalg.norm(p_prev - p_cur)
+
+        J = J[0:3] / mass
 
         return J
 
@@ -372,7 +468,7 @@ class SerialArm:
 
         return H
 
-    def ik(self, target, q0=None, method='pinv', rep=None, tol=1e-4, mit=1000, maxdel=np.inf, mindel=1e-6, force=False, retry=0, viz=None, base=False, tip=False, **kwargs):
+    def ik(self, target, q0=None, method='pinv', rep=None, tol=1e-4, mit=1000, maxdel=2*np.pi, mindel=1e-6, force=False, retry=0, viz=None, base=False, tip=False, **kwargs):
         """
         Wrapper for general IK function
         :param target: iterable or np.ndarray[size: (4, 4)], can be [x y], [x y z], [x y theta] (use rep='planar'), 4x4 transform, [x y z r p y] or [x y z q0 q1 q2 q3]
@@ -473,7 +569,7 @@ class SerialArm:
         return sol
 
 
-def shift_gamma(*args, **kwargs):
+def shift_gamma(*args):
     gamma = np.eye(6)
     for x in args:
         if len(x.shape) == 1:
@@ -562,6 +658,9 @@ def ik_jt(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K, Kd):
     e = xt - xc
     de = np.zeros_like(e)
 
+    if maxdel == np.inf:
+        maxdel = 2 * np.pi
+
     while np.linalg.norm(e) > tol and nit < mit:
         J = getJ(qc)
         qd = J.T @ K @ e - J.T @ Kd @ de
@@ -576,14 +675,6 @@ def ik_jt(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K, Kd):
         alpha = optimize.minimize_scalar(f, bounds=(-maxdel, maxdel), method='bounded', options={'xatol':tol}).x
         qd = qd / qdnorm * alpha
         qdnorm = np.abs(alpha)
-
-        if qdnorm > maxdel:
-            qd = qd / qdnorm * maxdel
-
-        while np.linalg.norm(getx(qc + qd) - target) > np.linalg.norm(e) and qdnorm > mindel * 5:
-            qd = qd * 0.75
-
-        qdnorm = np.linalg.norm(qd)
 
         if qdnorm < mindel:
             break
@@ -630,6 +721,9 @@ def ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry, viz):
     index = 0
     n = len(q0)
 
+    if maxdel == np.inf:
+        maxdel = 10.0
+
     while np.linalg.norm(e) > tol and nit < mit:
 
         def func(a):
@@ -637,11 +731,12 @@ def ik_ccd(target, getx, q0, tol, mit, maxdel, mindel, retry, viz):
             q[index] += a
             return np.linalg.norm(target - getx(q))**2
 
-        a = optimize.minimize_scalar(func, bounds=(-maxdel, maxdel), method='brent', tol=tol).x
+        a = optimize.minimize_scalar(func, bounds=(-maxdel, maxdel), method='bounded', tol=tol).x
         qdnorm = np.abs(a)
         qd = np.zeros((n,))
         qd[index] = a
         qc = qc + qd
+        qc = wrap_angle(qc)
         qs.append(qc)
         nit += 1
         e = target - getx(qc)
@@ -684,6 +779,7 @@ def ik_scipy(target, getx, getJ, getH, q0, tol, mit, maxdel, mindel, retry, viz,
         J = getJ(q)
         e = target - getx(q)
         output = -e @ J
+        return output
 
     def hess(q):
         J = getJ(q)
@@ -694,6 +790,7 @@ def ik_scipy(target, getx, getJ, getH, q0, tol, mit, maxdel, mindel, retry, viz,
 
     bounds = [(-np.pi, np.pi)] * len(q0)
     qs = [q0]
+
     def callback(qk, state=None):
         if viz is not None:
             viz.update(qk)

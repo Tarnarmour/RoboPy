@@ -145,7 +145,7 @@ def q2R(q):
     return clean_rotation_matrix(R)
 
 def R2axis(R):
-    ang = np.arccos(0.5 * (R[0, 0] + R[1, 1] + R[2, 2] - 1))
+    ang = np.arccos(np.clip(0.5 * (R[0, 0] + R[1, 1] + R[2, 2] - 1), 0, 1))
     if np.isclose(sin(ang), 0.0):
         return np.array([0,
                          1,
