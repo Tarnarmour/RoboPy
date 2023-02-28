@@ -206,8 +206,8 @@ class VizScene:
 
         self.app.processEvents()
 
-    def add_arm(self, arm, draw_frames=False, joint_colors=None, label=None, q=None):
-        self.arms.append(ArmMeshObject(arm, draw_frames=draw_frames, joint_colors=joint_colors))
+    def add_arm(self, arm, draw_frames=False, joint_colors=None, link_colors=None, label=None, q=None):
+        self.arms.append(ArmMeshObject(arm, draw_frames=draw_frames, joint_colors=joint_colors, link_colors=None))
         self.arms[-1].update(q)
         self.window.addItem(self.arms[-1].mesh_object)
 
@@ -406,14 +406,18 @@ class ArmPlayer:
                 t.setText(f"Joint {i + 1}: 0")
             t.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             s = QSlider(Qt.Horizontal)
-            if not arm.qlim[i, 0] == -np.inf:
-                s.setMinimum(arm.qlim[i, 0] * 180 / np.pi * 2)
-            else:
+            if arm.qlim is None:
                 s.setMinimum(-360)
-            if not arm.qlim[i, 1] == np.inf:
-                s.setMaximum(arm.qlim[i, 1] * 180 / np.pi * 2)
-            else:
                 s.setMaximum(360)
+            else:
+                if not arm.qlim[i, 0] == -np.inf:
+                    s.setMinimum(arm.qlim[i, 0] * 180 / np.pi * 2)
+                else:
+                    s.setMinimum(-360)
+                if not arm.qlim[i, 1] == np.inf:
+                    s.setMaximum(arm.qlim[i, 1] * 180 / np.pi * 2)
+                else:
+                    s.setMaximum(360)
             s.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             s.sliderMoved.connect(self.update_sliders)
             self.slider_list.append(s)
@@ -483,11 +487,24 @@ class ArmMeshObject:
         self.link_objects = []
         self.frame_objects = []
 
+        # Make sure we have a list of numpy arrays for the colors
         if link_colors is None:
             link_colors = [dark_blue] * self.n
+        elif not hasattr(link_colors[0], '__iter__'):
+            if not isinstance(link_colors, np.ndarray):
+                link_colors = np.asarray(link_colors)
+            link_colors = [link_colors] * self.n
+        elif not isinstance(link_colors[0], np.ndarray):
+            link_colors = [np.asarray(x) for x in link_colors]
 
         if joint_colors is None:
             joint_colors = [dark_red] * self.n
+        elif not hasattr(joint_colors[0], '__iter__'):
+            if not isinstance(joint_colors, np.ndarray):
+                joint_colors = np.asarray(joint_colors)
+            joint_colors = [joint_colors] * self.n
+        elif not isinstance(joint_colors[0], np.ndarray):
+            joint_colors = [np.asarray(x) for x in joint_colors]
 
         self.frame_objects.append(FrameMeshObject())
 
@@ -497,7 +514,7 @@ class ArmMeshObject:
                                      joint_color=joint_colors[i]))
             self.frame_objects.append(FrameMeshObject())
 
-        self.ee_object = EEMeshObject()
+        self.ee_object = EEMeshObject(ee_color)
         self.frame_objects.append(FrameMeshObject())
 
         self.mesh = np.zeros((0, 3, 3))
@@ -735,7 +752,12 @@ class FrameMeshObject:
 
 
 class EEMeshObject:
-    def __init__(self, scale=1, w=0.05, o1=0.05, o2=0.15, o3=0.3, o4=0.2, o5=0.1):
+    def __init__(self, scale=1, w=0.05, o1=0.05, o2=0.15, o3=0.3, o4=0.2, o5=0.1, color=None):
+        if color is None:
+            color = dark_red
+        elif not isinstance(color, np.ndarray):
+            color = np.asarray(color)
+
         w = w * scale
         o1 = o1 * scale
         o2 = o2 * scale
@@ -750,8 +772,8 @@ class EEMeshObject:
                                 [-o1, -o2, -w/2],
                                 [o3, 0, -w/2]
                                 ])
-        self.colors = np.zeros((8,3,4)) + dark_red
-        self.colors[1,:,:] = np.zeros((3,4)) + dark_blue
+        self.colors = np.zeros((8,3,4)) + color
+        self.colors[1,:,:] = np.zeros((3,4)) + color
 
     @staticmethod
     def points_to_mesh(p):
