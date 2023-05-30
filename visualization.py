@@ -25,157 +25,6 @@ dark_blue = np.array([0, 0, 0.3, 1])
 white = np.array([1, 1, 1, 1])
 grey = np.array([0.3, 0.3, 0.3, 1])
 
-class TransformMPL:
-
-    def __init__(self, A, ax=None):
-        self.A = A
-
-    def update(self, A):
-        self.A = A
-
-    def show(self):
-        plt.show()
-
-
-class PlanarMPL:
-
-    def __init__(self, arm, q0=None, trace=False, ax=None):
-        self.arm = arm
-        if ax is not None:
-            fig = ax.figure
-            flag = True
-        else:
-            fig, ax = plt.subplots()
-            flag = False
-        self.fig = fig
-        self.ax = ax
-        self.n = arm.n
-        self.reach = arm.reach
-        if not flag:
-            plt.axis('equal')
-            plt.xlim([-arm.reach * 1.5, arm.reach * 1.5])
-            plt.ylim([-arm.reach * 1.5, arm.reach * 1.5])
-
-        self.joints = []
-        self.links = []
-        self.joints.append(self.ax.add_patch(Circle([0, 0], 0.15, color=[0,0,0,1])))
-
-        if q0 is None:
-            q0 = [0] * self.n
-        self.q0 = q0
-        for i in range(self.n):
-            A = self.arm.fk(q0, index=i)
-            A_next = self.arm.fk(q0, index=i+1)
-
-            if i != 0:
-                joint = Circle(A[0:2, 3], 0.1, color=[0,0,0,1])
-                self.joints.append(self.ax.add_patch(joint))
-            link, = self.ax.plot([A[0,3], A_next[0,3]], [A[1,3], A_next[1,3]], lw=3, color=[0,0,0,1])
-            self.links.append(link)
-
-        end_effector = Circle(A_next[0:2,3], 0.1, color=[0.5,0,0,1])
-        self.joints.append(self.ax.add_patch(end_effector))
-
-        self.do_trace = trace
-        if trace:
-            self.start_trace(q0)
-
-    def start_trace(self, q0):
-        self.xs = []
-        self.ys = []
-        self.traces = []
-        for i in range(self.n):
-            pos = self.arm.fk(q0, index=i + 1)[0:2, 3]
-            C = [0, 0, 0, 0.4]
-            C[i] = 0.5
-            line, = self.ax.plot(pos[0], pos[1], lw=1, color=C)
-            self.xs.append([pos[0]])
-            self.ys.append([pos[1]])
-            self.traces.append(line)
-
-    def update(self, q):
-
-        for i in range(self.n):
-            A = self.arm.fk(q, index=i)
-            A_next = self.arm.fk(q, index=i+1)
-
-            if i != 0:
-                self.joints[i].set_center(A[0:2, 3])
-
-            self.links[i].set_xdata([A[0,3], A_next[0,3]])
-            self.links[i].set_ydata([A[1,3], A_next[1,3]])
-        self.joints[-1].set_center(A_next[0:2, 3])
-
-        if self.do_trace:
-            for i in range(self.n):
-                pos = self.arm.fk(q, index=i+1)[0:2,3]
-                self.xs[i].append(pos[0])
-                self.ys[i].append(pos[1])
-                self.traces[i].set_xdata(self.xs[i])
-                self.traces[i].set_ydata(self.ys[i])
-
-        plt.pause(0.02)
-
-    def show(self):
-        plt.show()
-
-    def set_bounds(self, xbound=None, ybound=None):
-        print('finish me')
-
-    def play(self):
-        # clear all the line plots
-        if self.do_trace:
-            self.do_trace = False
-            for i in range(self.n):
-                self.ax.lines.remove(self.traces[i])
-
-        # move to the default position
-        self.update(self.q0)
-
-        # resize and create slider bars
-        self.ax.set_position([0, 0, 0.75, 1])
-        plt.axis('equal')
-        plt.xlim([-self.arm.reach * 1.5, self.arm.reach * 1.5])
-        plt.ylim([-self.arm.reach * 1.5, self.arm.reach * 1.5])
-
-        max_h = 0.2
-        min_h = 0.8 / self.n
-        h = min(max_h, min_h)
-        self.sliders = []
-        self.gui_axes = []
-
-        def get_text_from_A(A):
-            pos = np.around(A[0:2, 3], decimals=2)
-            theta = np.around(np.arctan2(A[1, 0], A[0, 0]), decimals=2)
-
-            s = 'Pos: [' + str(pos[0]) + ', ' + str(pos[1]) + ']\n'
-            s += 'Angle: [' + str(theta) + ']\n'
-
-            return s
-        text_pos = [-self.reach * 1.35, self.reach * 1.15]
-        self.text_box = self.ax.text(text_pos[0], text_pos[1], get_text_from_A(self.arm.fk(self.q0)))
-
-        def slider_update(val):
-            q = self.q0
-            for i in range(self.n):
-                q[i] = self.sliders[i].val
-            self.update(q)
-            self.text_box.set_text(get_text_from_A(self.arm.fk(q)))
-            plt.draw()
-
-        for i in range(self.n):
-            self.gui_axes.append(self.fig.add_subplot())
-            self.gui_axes[i].set_position([0.775, 0.8 - h * i, 0.15, h - 0.05])
-            self.sliders.append(Slider(ax=self.gui_axes[i],
-                                        label=str(i),
-                                        valmin=-np.pi,
-                                        valmax=np.pi,
-                                        valinit=0,
-                                        orientation='horizontal'))
-            self.sliders[i].on_changed(slider_update)
-
-        # plt.show()
-
 
 class VizScene:
     """The viz scene holds all the 3d objects to be plotted. This includes arms (which are GLMeshObjects), transforms
@@ -206,8 +55,8 @@ class VizScene:
 
         self.app.processEvents()
 
-    def add_arm(self, arm, draw_frames=False, joint_colors=None, link_colors=None, label=None, q=None):
-        self.arms.append(ArmMeshObject(arm, draw_frames=draw_frames, joint_colors=joint_colors, link_colors=None))
+    def add_arm(self, arm, draw_frames=False, joint_colors=None, link_colors=None, ee_color=None, label=None, q=None):
+        self.arms.append(ArmMeshObject(arm, draw_frames=draw_frames, joint_colors=joint_colors, link_colors=link_colors, ee_color=ee_color))
         self.arms[-1].update(q)
         self.window.addItem(self.arms[-1].mesh_object)
 
@@ -264,22 +113,21 @@ class VizScene:
 
     def add_marker(self, pos, color=green, size=10, pxMode=True):
         if not isinstance(pos, (np.ndarray)):
-            pos = np.array(pos)
-
-        self.markers.append(gl.GLScatterPlotItem(pos=pos, color=color, size=size, pxMode=pxMode))
-        self.window.addItem(self.markers[-1])
-
-        # Maybe make this optional, or at least change the scale
-        # if 2 * norm(pos) > self.range:
-        #     self.range = 2 * norm(pos)
-        #     self.window.setCameraPosition(distance=self.range)
-
+            pos = np.array(pos, dtype=float)
+        if isinstance(color, (list)):
+            color = np.array(color)
+        if pos.ndim == 2:
+            m = pos.shape[0]
+            color = np.zeros((m, 4)) + color
+        spot = gl.GLScatterPlotItem(pos=pos, color=color, size=size, pxMode=pxMode)
+        self.markers.append(spot)
+        self.window.addItem(spot)
         self.app.processEvents()
 
     def remove_marker(self, ind=None):
         if ind is None:
             for marker in self.markers:
-                self.window.removeItem(marker.mesh_object)
+                self.window.removeItem(marker)
             self.markers = []
         elif isinstance(ind, (int)):
             self.window.removeItem(self.markers[ind])
@@ -323,7 +171,7 @@ class VizScene:
                 self.markers[0].setData(pos=pos)
 
         self.app.processEvents()
-        sleep(0.00001)
+        # sleep(0.00001)
 
     def hold(self, t=None):
         if t is None:
@@ -473,6 +321,57 @@ class ArmPlayer:
         self.armObject.update(qs)
 
 
+class SimViz(QMainWindow):
+    def __init__(self, arm):
+        self.app = QApplication.instance()
+        if self.app is None:
+            self.app = QApplication([])
+        super().__init__()
+        self.setGeometry(50, 50, 1000, 800)
+        self.n = arm.n
+
+        holder = QWidget()
+        self.setCentralWidget(holder)
+
+        mainLayout = QHBoxLayout()
+        holder.setLayout(mainLayout)
+        self.w = gl.GLViewWidget()
+        self.w.addItem(gl.GLGridItem())
+        self.armVizObject = ArmMeshObject(arm)
+        self.w.addItem(self.armVizObject.mesh_object)
+        mainLayout.addWidget(self.w, stretch=1)
+        self.w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        plotLayout = QVBoxLayout()
+        mainLayout.addLayout(plotLayout, stretch=1)
+        p1 = pg.PlotWidget()
+        p2 = pg.PlotWidget()
+        plotLayout.addWidget(p1)
+        plotLayout.addWidget(p2)
+        p1.setXRange(0, 5.0)
+        p2.setXRange(0, 5.0)
+        p1.setYRange(-np.pi, np.pi)
+        p2.setYRange(-10, 10)
+        p1.addLegend()
+        p2.addLegend()
+        self.qsPlots = []
+        self.qdsPlots = []
+        for i in range(self.n):
+            pen = pg.mkPen(np.random.randint(50, 255), np.random.randint(50, 255), np.random.randint(50, 255))
+            self.qsPlots.append(p1.plot(name=f'q{i + 1}', pen=pen))
+            self.qdsPlots.append(p2.plot(name=f'qdot{i + 1}', pen=pen))
+
+        self.show()
+
+    def callback_function(self, sim, history):
+        q = sim.q
+        self.armVizObject.update(q)
+        for i in range(self.n):
+            self.qsPlots[i].setData(history.ts, history.qs[:, i])
+            self.qdsPlots[i].setData(history.ts, history.qds[:, i])
+        self.app.processEvents()
+
+
 class ArmMeshObject:
     def __init__(self, arm, link_colors=None, joint_colors=None, ee_color=None, q0=None, draw_frames=False, frame_names=None):
         self.arm = arm
@@ -491,20 +390,12 @@ class ArmMeshObject:
         if link_colors is None:
             link_colors = [dark_blue] * self.n
         elif not hasattr(link_colors[0], '__iter__'):
-            if not isinstance(link_colors, np.ndarray):
-                link_colors = np.asarray(link_colors)
             link_colors = [link_colors] * self.n
-        elif not isinstance(link_colors[0], np.ndarray):
-            link_colors = [np.asarray(x) for x in link_colors]
 
         if joint_colors is None:
             joint_colors = [dark_red] * self.n
         elif not hasattr(joint_colors[0], '__iter__'):
-            if not isinstance(joint_colors, np.ndarray):
-                joint_colors = np.asarray(joint_colors)
             joint_colors = [joint_colors] * self.n
-        elif not isinstance(joint_colors[0], np.ndarray):
-            joint_colors = [np.asarray(x) for x in joint_colors]
 
         self.frame_objects.append(FrameMeshObject())
 
@@ -514,7 +405,7 @@ class ArmMeshObject:
                                      joint_color=joint_colors[i]))
             self.frame_objects.append(FrameMeshObject())
 
-        self.ee_object = EEMeshObject(ee_color)
+        self.ee_object = EEMeshObject(color=ee_color)
         self.frame_objects.append(FrameMeshObject())
 
         self.mesh = np.zeros((0, 3, 3))
@@ -560,7 +451,6 @@ class ArmMeshObject:
             colors.append(self.frame_objects[-1].get_colors())
         meshes.append(self.ee_object.get_mesh(R, p))
         colors.append(self.ee_object.get_colors())
-
 
         self.mesh = np.vstack(meshes)
         self.colors = np.vstack(colors)

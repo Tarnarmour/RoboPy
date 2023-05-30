@@ -206,7 +206,6 @@ class SerialArm:
 
         for i in range(start_frame, end_frame):
             A = A @ self.transforms[i].f(q[i])
-
         if rep is None:
             return A
         else:
@@ -226,10 +225,10 @@ class SerialArm:
 
         # If q is a 2D numpy array, assume each row is a set of q's and do this
         if len(q.shape) == 2:
-            output_shape = self.fk_com(q[0], index, base, tip, rep).shape
+            output_shape = self.fk_com(q[0], base).shape
             output = np.zeros(((q.shape[0],) + output_shape))
             for i, q_in in enumerate(q):
-                output[i] = self.fk_com(q_in, index, base, tip, rep)
+                output[i] = self.fk_com(q_in, base)
             return output
 
         if len(q) != self.n:
@@ -253,7 +252,7 @@ class SerialArm:
         p_com = p_com / mass
         return p_com
 
-    def jacob(self, q, index=None, base=False, tip=False):
+    def jacob(self, q, index=None, base=False, tip=False, rep='full'):
         # handle input: we want to accept any iterable or scalar and turn it into an np.array
         if not isinstance(q, np.ndarray):
             if hasattr(q, '__getitem__'):
@@ -304,6 +303,15 @@ class SerialArm:
             else:
                 raise ValueError("WARNING: Unknown joint type!")
                 print(f"Joint type for joint {i} is '{self.jt[i]}'")
+
+        if rep == 'cart':
+            J = J[0:3]
+        elif rep == 'xy':
+            J = J[0:2]
+        elif rep == 'planar':
+            J = J[[0, 1, 5]]
+        else:
+            pass
 
         return J
 

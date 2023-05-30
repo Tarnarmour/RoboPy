@@ -13,8 +13,7 @@ tip = se3()
 arm = SerialArm(dh, jt, tip=tip)
 
 viz = VizScene()
-viz.add_arm(arm, draw_frames=False)
-
+viz.add_arm(arm, draw_frames=False, link_colors=[0, 1, 0, 1], joint_colors=np.ones((n, 4)), ee_color=np.array([0, 1, 0, 1]))
 viz.update()
 
 viz.update(q)

@@ -95,7 +95,7 @@ def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=0.0, damping=0.0):
                                 [0, ll**2 / 12 * lm, 0],
                                 [0, 0, ll**2 / 12 * lm]])  # inertia tensor of link at the link COM in the link body frame
 
-        i_b = rc2p / ll  # link body frame i unit vector is aligned with the vector from i to i-1 frame (along link length)
+        i_b = rc2p / ll if not np.isclose(ll, 0.0) else Ac2p[0:3, 0]  # link body frame i unit vector is aligned with the vector from i to i-1 frame (along link length)
         k_b = np.cross(i_b, np.array([1, 0, 0]))  # find z unit vector by crossing i_b and i_i
         if np.linalg.norm(k_b) == 0:  # unless i_b and i_i are already parallel, then cross with j_i vector
             k_b = np.cross(i_b, np.array([0, 1, 0]))

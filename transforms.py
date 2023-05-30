@@ -220,6 +220,9 @@ def A2cart(A):
 def A2rot(A):
     return A[0:3, 0:3]
 
+def A2xy(A):
+    return A[0:2, 3]
+
 def A2pose(A, pose='q'):
     return {
         'rpy': A2rpy(A),
@@ -233,7 +236,8 @@ def A2pose(A, pose='q'):
         'R': A2rot(A),
         'rot': A2rot(A),
         'A': A,
-        'se3': A
+        'se3': A,
+        'xy': A2xy(A)
     }.get(pose, A2q(A))
 
 def slerp(q0, q1, t):
