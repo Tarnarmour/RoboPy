@@ -43,7 +43,7 @@ def PlanarDyn(n=3, L=1, joint_damping=None):
     arm = SerialArmDyn(dh, link_inertia=link_inertias, mass=mass, r_com=r_coms, joint_damping=joint_damping)
     return arm
 
-def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=0.0, damping=0.0):
+def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=0.0, damping=0.0, **kwargs):
     """A generic constructor that takes in DH parameters and joint types and makes an assumption of linear density,
     then calculates the dynamic parameters for each link assuming slender links."""
     mass = []
@@ -118,7 +118,8 @@ def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=0.0, damping=0.0):
                         mass=mass,
                         r_com=r_com,
                         link_inertia=link_inertia,
-                        joint_damping=joint_damping)
+                        joint_damping=joint_damping,
+                        **kwargs)
 
 def Panda(s=1):
     """Franka emika Panda robot"""
