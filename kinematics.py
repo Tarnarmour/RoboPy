@@ -366,12 +366,10 @@ class SerialArm:
         if index is None:
             index = self.n
         elif index > self.n:
-            raise ValueError("WARNING: Index greater than number of joints!")
-            print(f"Index: {index}")
+            raise ValueError(f"WARNING: Index greater than number of joints!\nIndex = {index}, n = {self.n}")
 
         Jdot = np.zeros((6, self.n), dtype=np.float32)
-        Te = self.fk(q, index, base=base, tip=tip)
-        pe = Te[0:3, 3]
+        pe = self.fk(q, index, base=base, tip=tip, rep='cart')
         Je = self.jacob(q, index, base, tip)
         ve = Je[0:3, :] @ qd
 
@@ -379,13 +377,17 @@ class SerialArm:
             if self.jt[i] == 'r':
                 T = self.fk(q, i, base=base, tip=tip)
                 z_axis = T[0:3, 2]
+                pc = T[0:3, 3]
                 xd = self.jacob(q, i, base, tip) @ qd
-                Jdot[0:3, i] = np.cross(z_axis, ve - xd[0:3]) + np.cross(xd[3:6], Je[0:3, i])  # np.cross(np.cross(xd[3:6], z_axis), pe - pc)
+                vi = xd[0:3]
+                wi = xd[3:6]
+                Jdot[0:3, i] = np.cross(z_axis, ve - vi) + np.cross(np.cross(wi, z_axis), pe - pc)
                 Jdot[3:6, i] = np.cross(xd[3:6], z_axis)
             else:
-                T = self.fk(q, i, base=base, tip=tip)
-                z_axis = T[0:3, 2]
-                Jdot[0:3, i] = np.cross(xd[3:6, z_axis])
+                Ji = self.jacob(q, i, base, tip)
+                z_axis = Ji[0:3, i]
+                wi = (Ji @ qd)[3:6]
+                Jdot[0:3, i] = np.cross(wi, z_axis)
 
         return Jdot
 

@@ -25,3 +25,9 @@ print(x + J @ dq, np.linalg.norm(x + J @ dq - arm.fk(q + dq)[0:2, 3]))
 print(x + J @ dq + 0.5 * dq @ H @ dq, np.linalg.norm(x + J @ dq + 0.5 * dq @ H @ dq - arm.fk(q + dq)[0:2, 3]))
 print(arm.fk(q + dq)[0:2, 3])
 
+qd = np.random.random((arm.n,))
+Jdot = arm.jacobdot(q, qd)
+dt = 1e-5
+print(Jdot * dt)
+print(arm.jacob(q + dt * qd) - arm.jacob(q))
+
