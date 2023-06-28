@@ -77,8 +77,8 @@ class VizScene:
                 self.window.removeItem(arm.mesh_object)
             self.arms = []
         elif isinstance(armIndex, (int)):
-            self.window.removeItem(self.arms[arm].mesh_object)
-            self.arms.pop(arm)
+            self.window.removeItem(self.arms[armIndex].mesh_object)
+            self.arms.pop(armIndex)
         else:
             print("Warning: invalid index entered!")
             return None
@@ -165,7 +165,7 @@ class VizScene:
                     self.markers[i].setData(pos=pos)
             else:
                 if not isinstance(poss, (np.ndarray)):
-                    pos = np.array(poss)
+                    pos = np.asarray(poss)
                 else:
                     pos = poss
                 self.markers[0].setData(pos=pos)
@@ -425,6 +425,7 @@ class ArmMeshObject:
         self.set_mesh(q)
         self.mesh_object.setMeshData(vertexes=self.mesh,
                                     vertexColors=self.colors)
+
     def set_mesh(self, q):
         meshes = []
         colors = []

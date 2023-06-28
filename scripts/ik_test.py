@@ -18,10 +18,10 @@ qf = np.random.random((arm.n,)) * 2 * np.pi - np.pi
 
 target = arm.fk(qf)
 
-max_delta = 0.25
-max_iter = 100
+max_delta = 0.05
+max_iter = np.inf
 
-sol = arm.ik(target, q0=q0, method='scipy', maxdel=max_delta, mit=max_iter, retry=5)
+sol = arm.ik(target, q0=q0, method='pinv', maxdel=max_delta, mit=max_iter, retry=5)
 print(sol)
 
 viz = rp.VizScene()

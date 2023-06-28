@@ -294,3 +294,14 @@ class SerialArmDyn(SerialArm):
         J = self.jacob(q)
         qdd = np.linalg.solve(M, tau - C @ qd - G + J.T @ Wext - b)
         return qdd
+
+    def accel_r(self, q, qd, g=np.array([0.0, 0.0, 0.0]), Wext=np.zeros((6,)), planar=False) -> float:
+        """
+        Calculate the acceleration radius (the maximum cartesian acceleration possible in any direction) for a given q
+        :param q: length n np.ndarray of joint angles in radians
+        :param qd: length n np.ndarray of joint velocities in rad / s
+        :param g: [0, 0, 0] length 3 np.ndarray representing gravity vector (positive in the down direction)
+        :param Wext: [0, 0, 0, 0, 0, 0] length 6 np.ndarray external wrench [F, Tau]^T exerted on the end effector
+        :param planar: False, boolean value where true means the task space should be 2-dim, false means 3-dim
+        :return: float r, acceleration radius
+        """

@@ -37,3 +37,16 @@ damping stuff going on. Or maybe that needs to be in forward dynamics?
 32) Rigid body kinematics, given q, qd, qdd, a, omega, and alpha return v, a, omega, and alpha for each frame
 33) Null space option on IK function
 34) FrameMeshObject should just be part of FrameViz
+35) Lie Groups: I think (emphasis on think) that Lie groups are the natural way to solve IK in that they provide the most natural definition for smooth error between a target pose and a current pose. It would also be great to learn the math by applying it to a concrete problem. Therefore, I'd like to make an IK3 function that uses Lie Groups to solve for pose-related inverse kinematics. This would be the same for purely translational targets, like cartesian or planar IK, but would replace (or maybe be equivalent to?) the quaternion analytic jacobian method for full SE3 stuff.
+36) Geometric Algebra: Same idea as with Lie Algebras, I'd love to see how Geometric Algebra can be applied to serial arm robotics and if that would yield any good performance or simplified calculation.
+37) ***IMPORTANT*** Caching for common functions like fk and jacob. fk gets recalled a *lot* during normal operation, and this could be a dramatic increase in performance especially for dynamics methods that require recalculation of jacobians over and over again. Caching is not going to be super simple, since numpy arrays can't be directly cached. I'm going to need to keep an input-standardization function, because I want inputs to still be able to be called with lists, numpy arrays, etc.
+38) call sign change. I am inevitably evolving into the convoluted (but hopefully well designed) monster package that I 
+criticised when using robotics toolbox the first time. So, right now I have a ton of boiler plate code that does
+input standardization, error checking, etc. for fk or jacob calls. Instead, I should have one function which checks 
+input sizes and converts inputs to a common data type (which should probably be a tuple for reasons in 37).
+Then the output of that function will go to other internal methods that can be leaner because they know the 
+input type. For example, arm.fk(q, index, base, tip, rep) will first call self._input_standardization(q) which
+would turn q into a tuple, check that len(q) == n, etc. Then that standardized output comes back to the fk
+function, (which will also check for the dimensions involved) and calls self._fk(q: tuple, index: int, ...)
+all fully known function inputs which can be cached using @lru_cache. Actually we can cut out base and tip from this as 
+well to speed things up more, and just manually pre or post multiply at the end (makes cache more dense).

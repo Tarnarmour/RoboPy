@@ -332,15 +332,14 @@ class SerialArm:
 
         # If q is a 2D numpy array, assume each row is a set of q's and do this
         if len(q.shape) == 2:
-            output_shape = self.jacob_com(q[0], index, base, tip).shape
+            output_shape = self.jacob_com(q[0], base).shape
             output = np.zeros(((q.shape[0],) + output_shape))
             for i, q_in in enumerate(q):
-                output[i] = self.jacob_com(q_in, index, base, tip)
+                output[i] = self.jacob_com(q_in, base)
             return output
 
         if len(q) != self.n:
             raise ValueError("WARNING: q (input angle) not the same size as number of links!")
-            return None
 
         q, clipped = self.clipq(q)
         if clipped and self.qlim_warning:
@@ -361,7 +360,7 @@ class SerialArm:
 
         return J
 
-    def jacobdot(self, q, qd, index=None, base=False, tip=False):
+    def jacobdot(self, q, qd, index=None, base=False, tip=False, rep=None):
 
         if index is None:
             index = self.n

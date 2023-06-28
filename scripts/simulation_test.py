@@ -11,7 +11,9 @@ def my_forces(insim: rp.SingleArmSimulation):
     def f_tau(q, qd, t):
         Kp = np.diag([20.0, 30.0])
         Kd = np.diag([10.0, 5.0])
-        tau = Kp @ (np.array([np.sin(5 * t), np.cos(5 * t)]) - q) + Kd @ (np.array([np.cos(5 * t), -np.sin(5 * t)]) - qd)
+        qdd = Kp @ (np.array([0, np.pi / 3]) - q) + Kd @ (-qd)
+        M, C, G = insim.get_MCG(q, qd, g=np.array([10, 0, 0]))
+        tau = M @ qdd + C @ qd + G
         return tau
 
     return f_tau
