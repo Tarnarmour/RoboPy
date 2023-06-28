@@ -13,6 +13,8 @@ import numpy as np
 from .kinematics import SerialArm, shift_gamma
 from .transforms import transl, se3
 from .utility import skew
+from itertools import combinations
+from scipy.linalg import null_space
 
 eye = np.eye(4)
 
@@ -27,13 +29,17 @@ class SerialArmDyn(SerialArm):
                  r_com=None,
                  link_inertia=None,
                  motor_inertia=None,
-                 joint_damping=None):
+                 joint_damping=None,
+                 torque_scaling=None):
 
         SerialArm.__init__(self, dh, jt, base, tip, joint_limits)
         self.mass = mass
         self.r_com = r_com
         self.link_inertia = link_inertia
         self.motor_inertia = motor_inertia
+        self.T = torque_scaling
+        if self.T is None:
+            self.T = np.eye(self.n)
         if joint_damping is None:
             self.B = np.zeros((self.n, self.n))
         else:
@@ -295,7 +301,12 @@ class SerialArmDyn(SerialArm):
         qdd = np.linalg.solve(M, tau - C @ qd - G + J.T @ Wext - b)
         return qdd
 
-    def accel_r(self, q, qd, g=np.array([0.0, 0.0, 0.0]), Wext=np.zeros((6,)), planar=False) -> float:
+    def accel_r(self, q, qd,
+                g=np.array([0.0, 0.0, 0.0]),
+                Wext=np.zeros((6,)),
+                planar=False,
+                base=True,
+                tip=True) -> float:
         """
         Calculate the acceleration radius (the maximum cartesian acceleration possible in any direction) for a given q
         :param q: length n np.ndarray of joint angles in radians
@@ -303,5 +314,54 @@ class SerialArmDyn(SerialArm):
         :param g: [0, 0, 0] length 3 np.ndarray representing gravity vector (positive in the down direction)
         :param Wext: [0, 0, 0, 0, 0, 0] length 6 np.ndarray external wrench [F, Tau]^T exerted on the end effector
         :param planar: False, boolean value where true means the task space should be 2-dim, false means 3-dim
+        :param base: True, whether to use base transform
+        :param tip: True, whether to use tip transform
         :return: float r, acceleration radius
         """
+        J = self.jacob(q, base=base, tip=tip)
+        Jd = self.jacobdot(q, qd, base=base, tip=tip)
+        m = 2 if planar else 3
+        n = self.n
+        J = J[0:m]
+        Jd = Jd[0:m]
+        M, C, G = self.get_MCG(q, qd, g)
+        Minv = np.linalg.inv(M)
+        Tinv = np.linalg.inv(self.T)
+
+        L = J @ Minv @ self.T
+        w = J @ Minv @ (C @ qd + G + J.T @ Wext) + Jd @ qd
+        b = Tinv @ (C @ qd + G + J.T @ Wext)
+
+        comb = [x for x in combinations(range(n), m - 1)]
+        iterate = range(len(comb))
+        k = len(comb)
+
+        rs = np.zeros((k,)) + np.inf
+        accs_possible = np.zeros((2 * k, m))
+
+        if np.linalg.norm(b, ord=np.inf) < 1:
+            for i in iterate:
+                if np.linalg.matrix_rank(L[:, comb[i]]) == m - 1:
+                    acc_orth = np.ravel(null_space(L[:, comb[i]].T))
+                else:
+                    continue
+
+                h = np.linalg.norm(acc_orth)
+                acc_orth = acc_orth / h
+                c = np.sign(L.T @ acc_orth)
+                z1 = acc_orth @ (L @ c + w)
+                z2 = acc_orth @ (L @ -c + w)
+
+                z = z1 if np.abs(z1) < np.abs(z2) else z2
+
+                rs[i] = z
+                accs_possible[i] = acc_orth * z
+                accs_possible[i + k] = acc_orth * z1 if z == z2 else acc_orth * z2
+
+            j = np.argmin(np.abs(rs))
+            acc_radius = np.abs(rs[j])
+        else:
+            acc_radius = 1 - np.linalg.norm(g, ord=np.inf)
+
+        return acc_radius
+
