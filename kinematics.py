@@ -9,9 +9,8 @@ Tarnarmour@gmail.com
 https://github.com/Tarnarmour/RoboPy.git
 """
 
-from .utility import *
+from functools import lru_cache
 from .transforms import *
-from dataclasses import dataclass
 import scipy.optimize as optimize
 
 eye = np.eye(4, dtype=np.float32)
@@ -82,13 +81,13 @@ class SerialArm:
         :param joint_limits: n length list of 2 length lists, holding first negative joint limit then positive, none for
         not implemented, as in [[-2, 2], [-2, 2], [-3.14, 1.56]]
         """
-        self.dh = dh
+        self.dh = tuple([tuple(d) for d in dh])
         self.n = len(dh)
         self.transforms = []
         if jt is None:
-            self.jt = ['r'] * self.n
+            self.jt = tuple(['r'] * self.n)
         else:
-            self.jt = jt
+            self.jt = tuple(jt)
             if len(self.jt) != self.n:
                 raise ValueError("WARNING! Joint Type list does not have the same size as dh param list!")
         for i in range(self.n):
@@ -97,6 +96,11 @@ class SerialArm:
 
         self.base = base
         self.tip = tip
+
+        self.cachable_base = tuple([tuple(b) for b in self.base])
+        self.cachable_tip = tuple([tuple(t) for t in self.tip])
+        self.cachable_eye = ((1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1))
+
         self.reach = 0
         for i in range(self.n):
             if self.jt[i] != 'c':  # don't attempt for custom joint types
@@ -147,6 +151,86 @@ class SerialArm:
             qs = (np.random.random((p, self.n)) * 2 - 1) * np.pi
         return qs
 
+    @staticmethod
+    def _standardize_input(q, n):
+        if hasattr(q, '__getitem__'):  # if is iterable
+            q = tuple(map(float, q))
+        else:
+            q = (q,)
+        if len(q) != n:
+            return False
+        return q
+
+    def fk2(self, q, index=None, base=False, tip=False, rep=None):
+
+        q = self._standardize_input(q, self.n)  # convert q to tuple
+
+        if isinstance(index, (list, tuple)):  # check for valid index and convert to tuple
+            start_frame = index[0]
+            end_frame = index[1]
+        elif index is None:
+            start_frame = 0
+            end_frame = self.n
+        else:
+            start_frame = 0
+            if index < 0:
+                raise ValueError(f"WARNING: Index ({index}) less than 0!")
+            end_frame = index
+
+        if end_frame > self.n:
+            raise ValueError(f"WARNING: Ending index ({end_frame}) greater than number of joints ({self.n}!")
+        if start_frame < 0:
+            raise ValueError(f"WARNING: Starting index ({start_frame}) less than 0!")
+        if start_frame > end_frame:
+            raise ValueError(f"WARNING: starting frame ({start_frame}) must be less than ending frame ({end_frame})!")
+
+        if not base:
+            base = self.cachable_eye
+        else:
+            base = self.cachable_base
+
+        if not tip:
+            tip = self.cachable_eye
+        else:
+            tip = self.cachable_tip
+
+        index = (int(start_frame), int(end_frame))
+        jt = str(self.jt)
+        A = self._fk(q, self.dh, jt, index, base, tip)
+        if rep is None:
+            return A
+        else:
+            return A2pose(A, rep)
+
+    @staticmethod
+    @lru_cache(typed=False, maxsize=32)
+    def _fk(q: tuple, dhs: tuple, jt: str, index: tuple[int, int], base: tuple, tip: tuple):
+        A = np.array(base, dtype=float)
+        for i in range(index[0], index[1]):
+            x = q[i]
+            dh = dhs[i]
+            j = jt[i]
+
+            if j == 'r':
+                theta = dh[1] + x
+                d = dh[0]
+            else:
+                theta = dh[1]
+                d = dh[0] + x
+
+            alpha = dh[3]
+            a = dh[2]
+            cth = np.cos(theta)
+            sth = np.sin(theta)
+            cal = np.cos(alpha)
+            sal = np.sin(alpha)
+
+            A = A @ np.array([[cth, -sth * cal, sth * sal, a * cth],
+                             [sth, cth * cal, -cth * sal, a * sth],
+                             [0, sal, cal, d],
+                             [0, 0, 0, 1]], dtype=float)
+        return A @ np.array(tip, dtype=float)
+
     def fk(self, q, index=None, base=False, tip=False, rep=None):
 
         # handle input: we want to accept any iterable or scalar and turn it into an np.array
@@ -162,15 +246,14 @@ class SerialArm:
             output = np.zeros(((q.shape[0],) + output_shape))
             for i, q_in in enumerate(q):
                 output[i] = self.fk(q_in, index, base, tip, rep)
-            return output
+            return output  # honestly I impress myself sometimes. Such a neat way to handle multidimensional inputs
 
         if len(q) != self.n:
             raise ValueError("WARNING: q (input angle) not the same size as number of links!")
-            return None
 
         q, clipped = self.clipq(q)
         if clipped and self.qlim_warning:
-            raise ValueError("WARNING! Joint input to fk out of joint limits!")
+            print("WARNING! Joint input to fk out of joint limits!")
 
         if isinstance(index, (list, tuple)):
             start_frame = index[0]
@@ -181,23 +264,15 @@ class SerialArm:
         else:
             start_frame = 0
             if index < 0:
-                raise ValueError("WARNING: Index less than 0!")
-                print(f"Index: {index}")
-                return None
+                raise ValueError(f"WARNING: Index ({index}) less than 0!")
             end_frame = index
 
         if end_frame > self.n:
-            raise ValueError("WARNING: Ending index greater than number of joints!")
-            print(f"Starting frame: {start_frame}  Ending frame: {end_frame}")
-            return None
+            raise ValueError(f"WARNING: Ending index ({end_frame}) greater than number of joints ({self.n}!")
         if start_frame < 0:
-            raise ValueError("WARNING: Starting index less than 0!")
-            print(f"Starting frame: {start_frame}  Ending frame: {end_frame}")
-            return None
+            raise ValueError(f"WARNING: Starting index ({start_frame}) less than 0!")
         if start_frame > end_frame:
-            raise ValueError("WARNING: starting frame must be less than ending frame!")
-            print(f"Starting frame: {start_frame}  Ending frame: {end_frame}")
-            return None
+            raise ValueError(f"WARNING: starting frame ({start_frame}) must be less than ending frame ({end_frame})!")
 
         if base and start_frame == 0:
             A = self.base
@@ -406,14 +481,12 @@ class SerialArm:
                 return A2axis(self.fk(q, index, base=base, tip=tip))
         elif rep == 'q' or rep == 'quaternion' or rep == 'quat':
             return padE(invEquat(A2q(self.fk(q, index, base=base, tip=tip))[3:7])) @ self.jacob(q, index, base=base, tip=tip)
-            def get_pose(q):
-                return A2q(self.fk(q, index, base=base, tip=tip))
         elif rep == 'x':
             def get_pose(q):
                 return A2x(self.fk(q, index, base=base, tip=tip))
         else:
             def get_pose(q):
-                return arm.fk(q, index, base=base, tip=tip)[0:2, 3]
+                return self.fk(q, index, base=base, tip=tip)[0:2, 3]
 
         x0 = get_pose(q)
         m = x0.shape[0]
@@ -599,8 +672,9 @@ getJ: function of q that gives analytic jacobian of getx
 
 These are set up in such a way that the error = ||target - getx(qc)||
 """
-def ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K):
 
+
+def ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K):
     qs = [q0]
     qc = q0
     xc = getx(qc)
