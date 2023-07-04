@@ -301,7 +301,7 @@ class SerialArmDyn(SerialArm):
         qdd = np.linalg.solve(M, tau - C @ qd - G + J.T @ Wext - b)
         return qdd
 
-    def accel_r(self, q, qd,
+    def accel_r(self, q, qd=None,
                 g=np.array([0.0, 0.0, 0.0]),
                 Wext=np.zeros((6,)),
                 planar=False,
@@ -318,11 +318,14 @@ class SerialArmDyn(SerialArm):
         :param tip: True, whether to use tip transform
         :return: float r, acceleration radius
         """
+        if qd is None:
+            qd = np.zeros((self.n,))
         J = self.jacob(q, base=base, tip=tip)
         Jd = self.jacobdot(q, qd, base=base, tip=tip)
         m = 2 if planar else 3
         n = self.n
         J = J[0:m]
+        Wext = Wext[0:m]
         Jd = Jd[0:m]
         M, C, G = self.get_MCG(q, qd, g)
         Minv = np.linalg.inv(M)
