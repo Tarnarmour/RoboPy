@@ -70,8 +70,6 @@ class SerialArm:
     frame, and frame n located at the end of link n.
 
     """
-
-
     def __init__(self, dh, jt=None, base=eye, tip=eye, joint_limits=None):
         """
         arm = SerialArm(dh, joint_type, base=I, tip=I, radians=True, joint_limits=None)
@@ -211,7 +209,7 @@ class SerialArm:
         else:
             return A2pose(A, rep)
 
-    def fk_com(self, q, base=False):
+    def fk_com(self, q, base=False, rep='cart'):
         """
         Find the center of mass, assuming weightless motors and links with constant linear density. Always returned
         with respect to frame 0 or world frame (if base is true). Only cartesian values [x y z]
@@ -250,6 +248,14 @@ class SerialArm:
             p_prev = p_cur
 
         p_com = p_com / mass
+
+        if rep == 'xy' or rep == 'planar':
+            p_com = p_com[0:2]
+        elif rep == 'full' or rep == 'cart':
+            pass
+        else:
+            raise ValueError(f"Unknown 'rep' argument: {rep}")
+
         return p_com
 
     def jacob(self, q, index=None, base=False, tip=False, rep='full'):
@@ -315,7 +321,7 @@ class SerialArm:
 
         return J
 
-    def jacob_com(self, q, base=False):
+    def jacob_com(self, q, base=False, rep='cart'):
         """
         Find the jacobian of the center of mass, assuming weightless joints and constant linear density. Always returns
         [x y z] with respect to either world frame or base frame
@@ -357,6 +363,13 @@ class SerialArm:
             mass += np.linalg.norm(p_prev - p_cur)
 
         J = J[0:3] / mass
+
+        if rep == 'xy' or rep == 'planar':
+            J = J[0:2]
+        elif rep == 'cart' or rep == 'full':
+            pass
+        else:
+            raise ValueError(f"Unknown 'rep' argument: {rep}")
 
         return J
 

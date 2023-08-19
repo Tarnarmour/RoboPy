@@ -17,6 +17,7 @@ def HumanArm(L1=0.3, L2=0.285):
           [0, 0, 0, -pi/2]]
     return SerialArm(dh, base=se3(roty(pi/2)), tip=se3(rotz(pi/2)))
 
+
 def PlanarDyn(n=3, L=1, joint_damping=None):
 
     if isinstance(L, (list, np.ndarray, tuple)):
@@ -42,6 +43,7 @@ def PlanarDyn(n=3, L=1, joint_damping=None):
 
     arm = SerialArmDyn(dh, link_inertia=link_inertias, mass=mass, r_com=r_coms, joint_damping=joint_damping)
     return arm
+
 
 def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=0.0, damping=0.0, **kwargs):
     """A generic constructor that takes in DH parameters and joint types and makes an assumption of linear density,
@@ -120,6 +122,7 @@ def SimpleDynArm(dh, jt=None, linear_density=1.0, motor_mass=0.0, damping=0.0, *
                         link_inertia=link_inertia,
                         joint_damping=joint_damping,
                         **kwargs)
+
 
 def Panda(s=1):
     """Franka emika Panda robot"""

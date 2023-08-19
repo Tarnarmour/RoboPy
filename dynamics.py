@@ -306,7 +306,8 @@ class SerialArmDyn(SerialArm):
                 Wext=np.zeros((6,)),
                 planar=False,
                 base=True,
-                tip=True) -> float:
+                tip=True,
+                verbose=False):
         """
         Calculate the acceleration radius (the maximum cartesian acceleration possible in any direction) for a given q
         :param q: length n np.ndarray of joint angles in radians
@@ -316,6 +317,7 @@ class SerialArmDyn(SerialArm):
         :param planar: False, boolean value where true means the task space should be 2-dim, false means 3-dim
         :param base: True, whether to use base transform
         :param tip: True, whether to use tip transform
+        :param verbose: False, whether to return potential accelerations
         :return: float r, acceleration radius
         """
         if qd is None:
@@ -363,8 +365,64 @@ class SerialArmDyn(SerialArm):
 
             j = np.argmin(np.abs(rs))
             acc_radius = np.abs(rs[j])
+
+            if verbose:
+                return acc_radius, accs_possible[j], accs_possible
+            return acc_radius
         else:
-            acc_radius = 1 - np.linalg.norm(g, ord=np.inf)
+            return 1 - np.linalg.norm(b, ord=np.inf)
+
+    def calc_planar_boundary(self, q, qd=None,
+                                    g=np.array([0.0, 0.0, 0.0]),
+                                    Wext=np.zeros((6,)),
+                                    base=True,
+                                    tip=True):
+        if qd is None:
+            qd = np.zeros((self.n,))
+        J = self.jacob(q, base=base, tip=tip)
+        Jd = self.jacobdot(q, qd, base=base, tip=tip)
+        m = 2
+        n = self.n
+        J = J[0:m]
+        Wext = Wext[0:m]
+        Jd = Jd[0:m]
+        M, C, G = self.get_MCG(q, qd, g)
+        Minv = np.linalg.inv(M)
+        Tinv = np.linalg.inv(self.T)
+
+        L = J @ Minv @ self.T
+        w = J @ Minv @ (C @ qd + G + J.T @ Wext) + Jd @ qd
+        b = Tinv @ (C @ qd + G + J.T @ Wext)
+
+        comb = [x for x in combinations(range(n), m - 1)]
+        iterate = range(len(comb))
+        k = len(comb)
+
+        rs = np.zeros((k,)) + np.inf
+        accs_possible = np.zeros((2 * k, m))
+
+        if np.linalg.norm(b, ord=np.inf) < 1:
+            for i in iterate:
+                if np.linalg.matrix_rank(L[:, comb[i]]) == m - 1:
+                    acc_orth = np.ravel(null_space(L[:, comb[i]].T))
+                else:
+                    continue
+
+                h = np.linalg.norm(acc_orth)
+                acc_orth = acc_orth / h
+                c = np.sign(L.T @ acc_orth)
+                z1 = acc_orth @ (L @ c + w)
+                z2 = acc_orth @ (L @ -c + w)
+
+                z = z1 if np.abs(z1) < np.abs(z2) else z2
+
+                rs[i] = z
+                accs_possible[i] = acc_orth * z
+                accs_possible[i + k] = acc_orth * z1 if z == z2 else acc_orth * z2
+
+            j = np.argmin(np.abs(rs))
+            acc_radius = np.abs(rs[j])
+        else:
+            acc_radius = 1 - np.linalg.norm(b, ord=np.inf)
 
         return acc_radius
-

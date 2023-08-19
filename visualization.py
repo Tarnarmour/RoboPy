@@ -55,6 +55,11 @@ class VizScene:
 
         self.app.processEvents()
 
+    def white_mode(self):
+        self.grid.setColor([40, 40, 40, 75])
+        self.window.setBackgroundColor(255, 255, 255, 100)
+        self.app.processEvents()
+
     def add_arm(self, arm, draw_frames=False, joint_colors=None, link_colors=None, ee_color=None, label=None, q=None):
         self.arms.append(ArmMeshObject(arm, draw_frames=draw_frames, joint_colors=joint_colors, link_colors=link_colors, ee_color=ee_color))
         self.arms[-1].update(q)
@@ -226,7 +231,7 @@ class VizScene:
 class ArmPlayer:
     def __init__(self, arm):
         if QApplication.instance() is None:
-            self.app = pg.QtGui.QApplication([])
+            self.app = QApplication([])
         else:
             self.app = QApplication.instance()
         self.window = QMainWindow()
