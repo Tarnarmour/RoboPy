@@ -1,0 +1,33 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: RoboPy
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: John
+    family-names: Morrell
+    email: Tarnarmour@gmail.com
+    affiliation: Brigham Young University
+repository-code: 'https://github.com/Tarnarmour/RoboPy/tree/main'
+abstract: >-
+  A pure python robotics package for modeling serial robot
+  arms. Included are basic and common transformations and
+  methods for representing pose, robot forward and inverse
+  kinematics, robot dynamics, low effort 3D visualizations
+  using pyqtgraph and PyOpenGL, and basic simulation and
+  control code. RoboPy is designed to be easy to use and
+  accurate, NOT to be optimally performant.
+keywords:
+  - Robotics
+  - Kinematics
+  - Dynamics
+  - Inverse Kinematics
+  - opengl
+  - Python
+license: MIT
+version: '1.0'
+date-released: '2023-06-01'
