@@ -13,6 +13,7 @@ from .utility import *
 from .transforms import *
 from dataclasses import dataclass
 import scipy.optimize as optimize
+from functools import lru_cache
 
 eye = np.eye(4, dtype=np.float32)
 pi = np.pi
@@ -164,7 +165,6 @@ class SerialArm:
 
         if len(q) != self.n:
             raise ValueError("WARNING: q (input angle) not the same size as number of links!")
-            return None
 
         q, clipped = self.clipq(q)
         if clipped and self.qlim_warning:
@@ -321,6 +321,36 @@ class SerialArm:
 
         return J
 
+    @lru_cache(maxsize=16)
+    def _jacob_cached(self, q, rep):
+        J = np.zeros((6, self.n), dtype=data_type)
+        Te = self.fk(q)
+        pe = Te[0:3, 3]
+
+        for i in range(self.n):
+            if self.jt[i] == 'r':
+                T = self.fk(q, i)
+                z_axis = T[0:3, 2]
+                p = T[0:3, 3]
+                J[0:3, i] = np.cross(z_axis, pe - p, axis=0)
+                J[3:6, i] = z_axis
+            else:
+                T = self.fk(q, i)
+                z_axis = T[0:3, 2]
+                J[0:3, i] = z_axis
+                J[3:6, i] = np.zeros_like(z_axis)
+
+        if rep.lower() in ('cart', 'xyz'):
+            J = J[0:3]
+        elif rep.lower() in ('xy',):
+            J = J[0:2]
+        elif rep.lower() in ('planar',):
+            J = J[[0, 1, 5]]
+        else:
+            pass
+
+        return J
+
     def jacob_com(self, q, base=False, rep='cart'):
         """
         Find the jacobian of the center of mass, assuming weightless joints and constant linear density. Always returns
@@ -419,14 +449,12 @@ class SerialArm:
                 return A2axis(self.fk(q, index, base=base, tip=tip))
         elif rep == 'q' or rep == 'quaternion' or rep == 'quat':
             return padE(invEquat(A2q(self.fk(q, index, base=base, tip=tip))[3:7])) @ self.jacob(q, index, base=base, tip=tip)
-            def get_pose(q):
-                return A2q(self.fk(q, index, base=base, tip=tip))
         elif rep == 'x':
             def get_pose(q):
                 return A2x(self.fk(q, index, base=base, tip=tip))
         else:
             def get_pose(q):
-                return arm.fk(q, index, base=base, tip=tip)[0:2, 3]
+                return self.fk(q, index, base=base, tip=tip)[0:2, 3]
 
         x0 = get_pose(q)
         m = x0.shape[0]
@@ -590,6 +618,27 @@ class SerialArm:
 
         return sol
 
+    def yoshikawa(self, q, rep='full'):
+        J = self._jacob_cached(q, rep)
+        w = max(np.linalg.det(J @ J.T).real, 0.0)
+        return np.sqrt(w)
+
+    def rcond(self, q, rep='full'):
+        J = self._jacob_cached(q, rep)
+        return 1 / np.linalg.cond(J @ J.T)
+
+    def aim(self, q, rep='full', method='min'):
+        J = self._jacob_cached(q, rep)
+        Jn = J / np.linalg.norm(J, axis=0)
+        Y = np.abs(Jn.T @ Jn) - np.eye(self.n)
+
+        if method == 'min':
+            y = np.arccos(np.max(Y)) / np.pi * 2
+        else:
+            raise ValueError("Invalid method for AIM")
+
+        return y
+
 
 def shift_gamma(*args):
     gamma = np.eye(6)
@@ -603,6 +652,7 @@ def shift_gamma(*args):
         gamma = gamma @ gamma_new
     return gamma
 
+
 """
 All IK method functions can trust getting some specific types of inputs, which will be handled in SerialArm.ik
 
@@ -612,6 +662,8 @@ getJ: function of q that gives analytic jacobian of getx
 
 These are set up in such a way that the error = ||target - getx(qc)||
 """
+
+
 def ik_pinv(target, getx, getJ, q0, tol, mit, maxdel, mindel, retry, viz, K):
 
     qs = [q0]

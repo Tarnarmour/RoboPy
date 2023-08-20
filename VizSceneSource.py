@@ -4,7 +4,7 @@ import numpy as np
 
 
 def cube_vertex(a, b, c):
-    """Returns a 8 x 3 numpy array of points describiing the vertices of a rectangular prism, centered on the origin,
+    """Returns a 8 x 3 numpy array of points describing the vertices of a rectangular prism, centered on the origin,
     with x side length of a, y side length of b, and z side length of c."""
 
     x = a / 2
